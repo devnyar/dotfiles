@@ -3,9 +3,6 @@ export PATH=$HOME/.opencode/bin:$HOME/.local/bin:$PATH
 
 alias reload="source ~/.zshrc"
 
-alias ai="sudo apt-get install -y "
-alias au="sudo apt-get update && sudo apt-get upgrade -y && sudo apt autoremove --purge -y"
-
 alias edit-alias="vim ~/.oh-my-zsh/custom/aliases.zsh"
 
 # android debug bridge
