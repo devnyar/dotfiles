@@ -1,0 +1,13 @@
+{
+  "name": "line-thai-translator",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Inject a Thai->English translator into the LINE Chromium app via CDP + DeepL",
+  "scripts": {
+    "start": "node driver.js"
+  },
+  "dependencies": {
+    "chrome-remote-interface": "^0.33.3"
+  }
+}

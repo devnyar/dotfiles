@@ -1,0 +1,17 @@
+# Cache files
+*.cache
+*cache*/
+__pycache__/
+
+# Backup files (incl. timestamped .bak.<n> from omarchy refresh & install.sh)
+*-backup-*
+*.bak*
+*.backup
+
+# Wallpapers (too large, personal)
+hypr/wallpaper_effects/
+hypr/wallpapers/
+
+# Sensitive files
+*.secret
+*.private

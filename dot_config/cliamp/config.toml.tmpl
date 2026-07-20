@@ -1,0 +1,22 @@
+theme = "nord"
+
+eq_preset = "Custom"
+eq = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+sample_rate = 48000
+buffer_ms = 200
+resample_quality = 4
+bit_depth = 32
+
+speed = 1.00
+
+shuffle = false
+repeat = "All"
+visualizer = "Scatter"
+[spotify]
+client_id = "{{ .cliamp.spotify.client_id }}"
+bitrate = 320
+
+[ytmusic]
+client_id = "{{ .cliamp.ytmusic.client_id }}"
+client_secret = "{{ .cliamp.ytmusic.client_secret }}"
