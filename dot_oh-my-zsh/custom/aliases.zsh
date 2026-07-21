@@ -3,7 +3,7 @@ export PATH=$HOME/.opencode/bin:$HOME/.local/bin:$PATH
 
 alias reload="source ~/.zshrc"
 
-alias edit-alias="vim ~/.oh-my-zsh/custom/aliases.zsh"
+alias edit-alias="chezmoi edit ~/.oh-my-zsh/custom/aliases.zsh"
 
 # android debug bridge
 alias a="adb "
@@ -13,8 +13,6 @@ alias grep_prop="adb shell getprop | grep "
 
 # rockchip
 alias rd="rkut ld"
-alias rft="rkut uf ~/rlos-workspace/rlos-rom/rockdev/Image-rlgen2/update.img"
-alias rftp="rkut uf ~/rlos-workspace/rlos-rom/rockdev/Image-rlgen2plus/update.img"
 
 # general
 alias tree="tree -h"
@@ -25,6 +23,7 @@ alias rr="cd ~/rlos-workspace/rlos-rom/"
 alias re="cd ~/rlos-workspace/essential-rlos-rom-repo/"
 alias rlapp-platform="cd ~/rlapp-workspace/rlapp-platform/"
 alias rp="cd ~/rlapp-workspace/rlapp-platform/"
+alias bota="cd ~/rlos-workspace/ota/"
 alias ota="cd /media/wd-4tb-1/rlos-workspace/ota/"
 alias dsd="cd /media/wd-4tb-1/rlapp-workspace/device-sample-data"
 
