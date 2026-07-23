@@ -1,0 +1,80 @@
+" .ideavimrc is a configuration file for IdeaVim plugin. It uses
+"   the same commands as the original .vimrc configuration.
+" You can find a list of commands here: https://jb.gg/h38q75
+" Find more examples here: https://jb.gg/share-ideavimrc
+
+
+"" -- Suggested options --
+" Show a few lines of context around the cursor. Note that this makes the
+" text scroll if you mouse-click near the start or end of the window.
+set scrolloff=5
+
+" Do incremental searching.
+set incsearch
+
+" Don't use Ex mode, use Q for formatting.
+map Q gq
+
+" --- Enable IdeaVim plugins https://jb.gg/ideavim-plugins
+
+" Highlight copied text
+Plug 'machakann/vim-highlightedyank'
+" Commentary plugin
+Plug 'tpope/vim-commentary'
+
+
+"" -- Map IDE actions to IdeaVim -- https://jb.gg/abva4t
+"" Map \r to the Reformat Code action
+"map \r <Action>(ReformatCode)
+
+"" Map <leader>d to start debug
+"map <leader>d <Action>(Debug)
+
+"" Map \b to toggle the breakpoint on the current line
+"map \b <Action>(ToggleLineBreakpoint)
+
+sethandler <Tab> a:ide
+sethandler <S-Tab> a:ide
+sethandler <S-CR> a:ide
+sethandler <C-Pageup> a:ide
+sethandler <C-Pagedown> a:ide
+sethandler <S-Left> a:ide
+sethandler <C-Left> a:ide
+sethandler <S-Up> a:ide
+sethandler <C-Up> a:ide
+sethandler <S-Right> a:ide
+sethandler <C-Right> a:ide
+sethandler <S-Down> a:ide
+sethandler <C-Down> a:ide
+sethandler <C-2> a:ide
+sethandler <C-S-2> a:ide
+sethandler <C-6> a:ide
+sethandler <C-S-6> a:ide
+sethandler <C-A> a:ide
+sethandler <C-B> a:ide
+sethandler <C-C> a:ide
+sethandler <C-D> a:ide
+sethandler <C-E> a:ide
+sethandler <C-F> a:ide
+sethandler <C-G> a:ide
+sethandler <C-H> a:ide
+sethandler <C-I> a:ide
+sethandler <C-J> a:ide
+sethandler <C-K> a:ide
+sethandler <C-L> a:ide
+sethandler <C-M> a:ide
+sethandler <C-N> a:ide
+sethandler <C-O> a:ide
+sethandler <C-P> a:ide
+sethandler <C-Q> a:ide
+sethandler <C-R> a:ide
+sethandler <C-S> a:ide
+sethandler <C-T> a:ide
+sethandler <C-U> a:ide
+sethandler <C-V> a:ide
+sethandler <C-W> a:ide
+sethandler <C-X> a:ide
+sethandler <C-Y> a:ide
+sethandler <C-[> a:ide
+sethandler <C-\> a:ide
+sethandler <C-]> a:ide
