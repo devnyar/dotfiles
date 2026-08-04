@@ -38,3 +38,11 @@ alias wanip="~/.local/bin/wanip.sh"
 
 # make a directory and cd into it
 mkcd() { mkdir -p "$1" && cd "$1"; }
+
+# Push to Folders on Device via ADB
+adb-push-update-zip() { adb push "$1" /storage/emulated/0/update.zip }
+# accepts multiple files/folders: adb-push-to-Download ~/roms/*.zip mydir
+adb-push-to-Download() {
+  (( $# )) || { echo "usage: adb-push-to-Download <file-or-dir>..." >&2; return 1; }
+  adb push -- "$@" /storage/emulated/0/Download/
+}

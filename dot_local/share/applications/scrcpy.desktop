@@ -2,7 +2,7 @@
 Name=scrcpy
 GenericName=Android Remote Control
 Comment=Display and control your Android device
-Exec=scrcpy
+Exec=scrcpy --no-audio
 Icon=scrcpy
 Terminal=false
 Type=Application
