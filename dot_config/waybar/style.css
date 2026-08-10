@@ -158,3 +158,14 @@ tooltip {
 #custom-voxtype.recording {
   color: #A07D7D;
 }
+
+#custom-keyboard-layout {
+  min-width: 12px;
+  margin: 0 7.5px;
+  padding: 6px 0;
+  font-size: 11px;
+}
+
+#custom-keyboard-layout.english {
+  opacity: 0.5;
+}
