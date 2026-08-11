@@ -29,8 +29,10 @@ alias mota="mv ~/rlos-workspace/ota/* /media/wd-4tb-1/rlos-workspace/ota"
 alias dsd="cd /media/wd-4tb-1/rlapp-workspace/device-sample-data"
 
 # tailscale
-alias thome="tailscale switch banyarnaing123@gmail.com; tailscale up --accept-routes --operator=banyar"
-alias twork="tailscale switch dev@reezlive.com; tailscale up --accept-routes --operator=banyar"
+# thome = profile 3d7a (banyarnaing123@gmail.com), twork = profile fa4f (reezlive.com)
+# Switch by stable profile ID, not account name, so no re-auth is triggered.
+alias thome="tailscale switch 3d7a; tailscale up --accept-routes --operator=banyar; sudo /usr/local/bin/tailscale-lan-bypass"
+alias twork="tailscale switch fa4f; tailscale up --accept-routes --operator=banyar; sudo /usr/local/bin/tailscale-lan-bypass"
 
 
 # util
