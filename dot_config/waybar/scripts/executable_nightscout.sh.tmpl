@@ -3,6 +3,7 @@
 # Outputs JSON: {"text": ..., "tooltip": ..., "class": ...}
 
 NS_URL="{{ .nightscout.url }}"
+NS_TOKEN="{{ .nightscout.token }}"
 
 # Used by waybar's on-click so the URL only lives in this templated file
 if [[ "$1" == "--open" ]]; then
@@ -22,7 +23,7 @@ STATE_FILE="${XDG_RUNTIME_DIR:-/tmp}/waybar-nightscout-last-alert"
 
 ICON=""
 
-json=$(curl -sf --max-time 10 "$NS_URL/api/v1/entries.json?count=2")
+json=$(curl -sf --max-time 10 "$NS_URL/api/v1/entries.json?count=2&token=$NS_TOKEN")
 
 if [[ -z "$json" ]] || ! jq -e '.[0].sgv' <<<"$json" >/dev/null 2>&1; then
   printf '{"text": "%s --", "tooltip": "Nightscout unreachable\\n%s", "class": "error"}\n' "$ICON" "$NS_URL"
