@@ -7,6 +7,7 @@
   "modules-left": ["custom/omarchy", "hyprland/workspaces"],
   "modules-center": ["clock", "custom/update", "custom/voxtype", "custom/screenrecording-indicator", "custom/idle-indicator", "custom/notification-silencing-indicator"],
   "modules-right": [
+    "custom/nightscout",
     "custom/weather",
     "group/tray-expander",
     "custom/keyboard-layout",
@@ -46,6 +47,15 @@
     "on-click": "omarchy-menu",
     "on-click-right": "xdg-terminal-exec",
     "tooltip-format": "Omarchy Menu\n\nSuper + Alt + Space"
+  },
+  "custom/nightscout": {
+    "exec": "~/.config/waybar/scripts/nightscout.sh",
+    "return-type": "json",
+    "interval": 6,
+    "signal": 12,
+    "tooltip": true,
+    "on-click": "~/.config/waybar/scripts/nightscout.sh --open",
+    "on-click-middle": "pkill -RTMIN+12 waybar"
   },
   "custom/weather": {
     "exec": "~/.config/waybar/scripts/weather.py --ttl 300 --icons nerd",

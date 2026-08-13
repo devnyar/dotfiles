@@ -124,6 +124,39 @@ tooltip {
   padding-left: 8px;
 }
 
+#custom-nightscout {
+  margin: 0 7.5px;
+  padding: 6px 0;
+}
+
+#custom-nightscout.low,
+#custom-nightscout.urgent-low {
+  color: #e78284;
+  font-weight: bold;
+}
+
+#custom-nightscout.high,
+#custom-nightscout.urgent-high {
+  color: #e5c890;
+  font-weight: bold;
+}
+
+@keyframes nightscout-blink {
+  to {
+    opacity: 0.4;
+  }
+}
+
+#custom-nightscout.urgent-low,
+#custom-nightscout.urgent-high {
+  animation: nightscout-blink 1s steps(2) infinite alternate;
+}
+
+#custom-nightscout.stale,
+#custom-nightscout.error {
+  opacity: 0.5;
+}
+
 #custom-weather.unavailable {
   min-width: 0;
   margin: 0;

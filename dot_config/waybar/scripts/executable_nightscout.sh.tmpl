@@ -1,0 +1,95 @@
+#!/bin/bash
+# Nightscout blood glucose module for Waybar
+# Outputs JSON: {"text": ..., "tooltip": ..., "class": ...}
+
+NS_URL="{{ .nightscout.url }}"
+
+# Used by waybar's on-click so the URL only lives in this templated file
+if [[ "$1" == "--open" ]]; then
+  exec xdg-open "$NS_URL"
+fi
+
+# Thresholds (mg/dL)
+URGENT_LOW=55
+LOW=70
+HIGH=180
+URGENT_HIGH=250
+STALE_MINUTES=15
+
+# Notify at most once per this many seconds while out of range
+NOTIFY_COOLDOWN=1800
+STATE_FILE="${XDG_RUNTIME_DIR:-/tmp}/waybar-nightscout-last-alert"
+
+ICON=""
+
+json=$(curl -sf --max-time 10 "$NS_URL/api/v1/entries.json?count=2")
+
+if [[ -z "$json" ]] || ! jq -e '.[0].sgv' <<<"$json" >/dev/null 2>&1; then
+  printf '{"text": "%s --", "tooltip": "Nightscout unreachable\\n%s", "class": "error"}\n' "$ICON" "$NS_URL"
+  exit 0
+fi
+
+sgv=$(jq -r '.[0].sgv' <<<"$json")
+prev=$(jq -r '.[1].sgv // empty' <<<"$json")
+direction=$(jq -r '.[0].direction // "NONE"' <<<"$json")
+date_ms=$(jq -r '.[0].date' <<<"$json")
+device=$(jq -r '.[0].device // "unknown"' <<<"$json")
+
+case "$direction" in
+  DoubleUp)       arrow="⇈" ;;
+  SingleUp)       arrow="↑" ;;
+  FortyFiveUp)    arrow="↗" ;;
+  Flat)           arrow="→" ;;
+  FortyFiveDown)  arrow="↘" ;;
+  SingleDown)     arrow="↓" ;;
+  DoubleDown)     arrow="⇊" ;;
+  *)              arrow="·" ;;
+esac
+
+now_ms=$(( $(date +%s) * 1000 ))
+age_min=$(( (now_ms - date_ms) / 60000 ))
+(( age_min < 0 )) && age_min=0
+
+if (( age_min == 0 )); then age_str="just now"
+elif (( age_min == 1 )); then age_str="1 min ago"
+else age_str="$age_min min ago"
+fi
+
+delta_str=""
+if [[ -n "$prev" ]]; then
+  delta=$(( sgv - prev ))
+  (( delta >= 0 )) && delta_str="+$delta" || delta_str="$delta"
+fi
+
+mmol=$(awk -v s="$sgv" 'BEGIN { printf "%.1f", s / 18.016 }')
+
+if   (( sgv <= URGENT_LOW ));  then class="urgent-low";  status="URGENT LOW"
+elif (( sgv <= LOW ));         then class="low";         status="Low"
+elif (( sgv >= URGENT_HIGH )); then class="urgent-high"; status="URGENT HIGH"
+elif (( sgv >= HIGH ));        then class="high";        status="High"
+else                                class="normal";      status="In range"
+fi
+
+if (( age_min > STALE_MINUTES )); then
+  class="stale"
+  status="Stale data"
+fi
+
+# Desktop notification when out of range (throttled)
+if [[ "$class" == "urgent-low" || "$class" == "urgent-high" || "$class" == "low" || "$class" == "high" ]]; then
+  now_s=$(( now_ms / 1000 ))
+  last=$(cat "$STATE_FILE" 2>/dev/null || echo 0)
+  if (( now_s - last > NOTIFY_COOLDOWN )); then
+    urgency="normal"
+    [[ "$class" == urgent-* ]] && urgency="critical"
+    notify-send -u "$urgency" -a Nightscout "Blood glucose: $status" "$sgv mg/dL $arrow ($delta_str)" 2>/dev/null
+    echo "$now_s" > "$STATE_FILE"
+  fi
+else
+  rm -f "$STATE_FILE"
+fi
+
+tooltip="Blood Glucose: $sgv mg/dL ($mmol mmol/L)\nTrend: $arrow ${delta_str:+$delta_str mg/dL}\nStatus: $status\nUpdated: $age_str · $device\n\nLeft click: open Nightscout\nMiddle click: refresh"
+
+printf '{"text": "%s %s %s", "tooltip": "%s", "class": "%s"}\n' \
+  "$ICON" "$sgv" "$arrow" "$tooltip" "$class"
