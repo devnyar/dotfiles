@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Keep DP-1/DP-2 pinned to the positions declared in monitors.conf.
+# Keep DP-1/DP-2 pinned to the positions declared in monitors.lua.
 #
 # Hyprland occasionally re-auto-places monitors after a mode renegotiation,
 # DPMS cycle, or silent re-init — and these events aren't always signalled
@@ -7,49 +7,42 @@
 #   1. Listen for monitoradded/removed events (cheap, instant reaction).
 #   2. Poll every few seconds as a safety net for silent drifts.
 #
-# When a drift is detected, re-apply the exact monitor lines from
-# monitors.conf via `hyprctl keyword monitor ...`.
+# When a drift is detected, re-apply the declared layout with `hyprctl reload`
+# (Hyprland 0.56+ uses the Lua config; `hyprctl keyword monitor` is gone).
 
 set -u
 
-CONF="$HOME/.config/hypr/monitors.conf"
+CONF="$HOME/.config/hypr/monitors.lua"
 LOG="${XDG_RUNTIME_DIR:-/tmp}/monitor-watcher.log"
 POLL_INTERVAL=3
 
 log() { printf '%s %s\n' "$(date -Iseconds)" "$*" >>"$LOG"; }
 
-# Extract active `monitor = ...` lines from monitors.conf (skip comments/blanks).
-declare -a MONITOR_LINES=()
-while IFS= read -r line; do
-  MONITOR_LINES+=("$line")
-done < <(grep -E '^\s*monitor\s*=' "$CONF" | sed -E 's/^\s*monitor\s*=\s*//')
-
-if (( ${#MONITOR_LINES[@]} == 0 )); then
-  log "no monitor lines found in $CONF; exiting"
-  exit 1
-fi
-
-# Parse expected positions/transforms: map port -> "POSX POSY" and port -> N.
+# Parse expected positions/transforms from single-line hl.monitor({...}) calls
+# in monitors.lua: map port -> "POSX POSY" and port -> N.
 declare -A EXPECT_POS
 declare -A EXPECT_TRANSFORM
-for spec in "${MONITOR_LINES[@]}"; do
-  port="$(awk -F, '{gsub(/ /,"",$1); print $1}' <<<"$spec")"
-  pos="$(awk -F, '{gsub(/ /,"",$3); print $3}' <<<"$spec")"
+while IFS= read -r spec; do
+  port="$(sed -nE 's/.*output = "([^"]+)".*/\1/p' <<<"$spec")"
+  pos="$(sed -nE 's/.*position = "([^"]+)".*/\1/p' <<<"$spec")"
   # Skip the "catch-all" default line (empty port).
   [[ -z "$port" ]] && continue
   # Skip lines with non-literal positions (e.g. "auto").
   [[ "$pos" == *x* ]] || continue
   EXPECT_POS["$port"]="${pos/x/ }"
-  # Capture an explicit "transform, N" if present in the spec.
-  if [[ "$spec" =~ transform[[:space:]]*,[[:space:]]*([0-9]+) ]]; then
+  # Capture an explicit "transform = N" if present in the spec.
+  if [[ "$spec" =~ transform[[:space:]]*=[[:space:]]*([0-9]+) ]]; then
     EXPECT_TRANSFORM["$port"]="${BASH_REMATCH[1]}"
   fi
-done
+done < <(grep -E '^\s*hl\.monitor\(' "$CONF")
+
+if (( ${#EXPECT_POS[@]} == 0 )); then
+  log "no hl.monitor lines found in $CONF; exiting"
+  exit 1
+fi
 
 apply_all() {
-  for spec in "${MONITOR_LINES[@]}"; do
-    hyprctl keyword monitor "$spec" >/dev/null
-  done
+  hyprctl reload >/dev/null
 }
 
 # Returns 0 if all tracked ports match expected position AND transform, else 1.

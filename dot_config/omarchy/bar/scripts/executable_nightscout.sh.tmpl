@@ -1,11 +1,13 @@
 #!/bin/bash
-# Nightscout blood glucose module for Waybar
-# Outputs JSON: {"text": ..., "tooltip": ..., "class": ...}
+# Nightscout blood glucose module for the Omarchy shell bar (command module).
+# Outputs Waybar-style JSON: {"text": ..., "tooltip": ..., "class": ...}
+# The bar only styles class "active" (accent highlight) — used when out of
+# range or stale; urgency detail lives in the text/tooltip and notifications.
 
 NS_URL="{{ .nightscout.url }}"
 NS_TOKEN="{{ .nightscout.token }}"
 
-# Used by waybar's on-click so the URL only lives in this templated file
+# Used by the bar's onClick so the URL only lives in this templated file
 if [[ "$1" == "--open" ]]; then
   exec xdg-open "$NS_URL"
 fi
@@ -19,14 +21,14 @@ STALE_MINUTES=15
 
 # Notify at most once per this many seconds while out of range
 NOTIFY_COOLDOWN=1800
-STATE_FILE="${XDG_RUNTIME_DIR:-/tmp}/waybar-nightscout-last-alert"
+STATE_FILE="${XDG_RUNTIME_DIR:-/tmp}/bar-nightscout-last-alert"
 
 ICON=""
 
 json=$(curl -sf --max-time 10 "$NS_URL/api/v1/entries.json?count=2&token=$NS_TOKEN")
 
 if [[ -z "$json" ]] || ! jq -e '.[0].sgv' <<<"$json" >/dev/null 2>&1; then
-  printf '{"text": "%s --", "tooltip": "Nightscout unreachable\\n%s", "class": "error"}\n' "$ICON" "$NS_URL"
+  printf '{"text": "%s --", "tooltip": "Nightscout unreachable\\n%s", "class": "active"}\n' "$ICON" "$NS_URL"
   exit 0
 fi
 
@@ -90,7 +92,16 @@ else
   rm -f "$STATE_FILE"
 fi
 
-tooltip="Blood Glucose: $sgv mg/dL ($mmol mmol/L)\nTrend: $arrow ${delta_str:+$delta_str mg/dL}\nStatus: $status\nUpdated: $age_str · $device\n\nLeft click: open Nightscout\nMiddle click: refresh"
+# Bar text: mark anything out of range / stale with the accent highlight and
+# a "!" for urgent states (the bar has no per-class colors like waybar CSS).
+text="$ICON $sgv $arrow"
+bar_class=""
+case "$class" in
+  urgent-low|urgent-high) text="$ICON $sgv $arrow !"; bar_class="active" ;;
+  low|high|stale)         bar_class="active" ;;
+esac
 
-printf '{"text": "%s %s %s", "tooltip": "%s", "class": "%s"}\n' \
-  "$ICON" "$sgv" "$arrow" "$tooltip" "$class"
+tooltip="Blood Glucose: $sgv mg/dL ($mmol mmol/L)\nTrend: $arrow ${delta_str:+$delta_str mg/dL}\nStatus: $status\nUpdated: $age_str · $device\n\nLeft click: open Nightscout"
+
+printf '{"text": "%s", "tooltip": "%s", "class": "%s"}\n' \
+  "$text" "$tooltip" "$bar_class"

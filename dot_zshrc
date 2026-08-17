@@ -78,8 +78,11 @@ source $ZSH/oh-my-zsh.sh
 # Source omarchy's bash aliases/functions (zsh-compatible subset).
 # Loaded after OMZ to override its plugin aliases (e.g., git plugin's gcm, ls),
 # then re-source user's aliases.zsh so personal overrides still win.
-if [ -d "$HOME/.local/share/omarchy/default/bash" ]; then
-  export OMARCHY_PATH="$HOME/.local/share/omarchy"
+# OMARCHY_PATH comes from env-bootstrap (the 4.x single source of truth —
+# hardcoding ~/.local/share/omarchy here made `omarchy update` think this was
+# a dev-linked checkout).
+[ -r /usr/share/omarchy/default/bash/env-bootstrap ] && source /usr/share/omarchy/default/bash/env-bootstrap
+if [ -d "${OMARCHY_PATH:-/usr/share/omarchy}/default/bash" ]; then
   source "$OMARCHY_PATH/default/bash/aliases"
   # Source fns with alias expansion disabled so function definitions that
   # collide with OMZ git plugin aliases (e.g. worktrees' ga()) don't hit
