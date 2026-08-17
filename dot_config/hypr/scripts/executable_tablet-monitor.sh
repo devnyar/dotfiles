@@ -97,8 +97,9 @@ start() {
     output_exists || die "headless output '$OUTPUT' never appeared"
   fi
 
-  # hyprctl keyword is gone in Hyprland 0.56 (Lua config) — apply via eval.
-  hyprctl eval "hl.monitor({ output = \"$OUTPUT\", mode = \"$MODE\", position = \"$POSITION\", scale = $SCALE })" >/dev/null ||
+  # Position/mode come from the "tablet" rule in monitors.lua (computed from
+  # DP-1's scale) — a reload applies it to the freshly created output.
+  hyprctl reload >/dev/null ||
     die "could not apply monitor rule for $OUTPUT"
 
   local args=(--output="$OUTPUT" --render-cursor)

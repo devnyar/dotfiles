@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Keep DP-1/DP-2 pinned to the positions declared in monitors.lua.
+# Keep the monitor layout pinned to what monitors.lua declares.
 #
 # Hyprland occasionally re-auto-places monitors after a mode renegotiation,
 # DPMS cycle, or silent re-init — and these events aren't always signalled
@@ -7,48 +7,53 @@
 #   1. Listen for monitoradded/removed events (cheap, instant reaction).
 #   2. Poll every few seconds as a safety net for silent drifts.
 #
-# When a drift is detected, re-apply the declared layout with `hyprctl reload`
-# (Hyprland 0.56+ uses the Lua config; `hyprctl keyword monitor` is gone).
+# On drift, re-apply with `hyprctl reload` (Hyprland 0.56+ uses the Lua
+# config; `hyprctl keyword monitor` is gone). Expected positions are computed
+# from DP-1's scale with the SAME math as monitors.lua — keep them in sync.
 
 set -u
 
-CONF="$HOME/.config/hypr/monitors.lua"
 LOG="${XDG_RUNTIME_DIR:-/tmp}/monitor-watcher.log"
 POLL_INTERVAL=3
+DP1_W=3440
+DP1_H=1440
+SCALE_STATE="$HOME/.local/state/hypr-dp1-scale"
 
 log() { printf '%s %s\n' "$(date -Iseconds)" "$*" >>"$LOG"; }
 
-# Parse expected positions/transforms from single-line hl.monitor({...}) calls
-# in monitors.lua: map port -> "POSX POSY" and port -> N.
 declare -A EXPECT_POS
-declare -A EXPECT_TRANSFORM
-while IFS= read -r spec; do
-  port="$(sed -nE 's/.*output = "([^"]+)".*/\1/p' <<<"$spec")"
-  pos="$(sed -nE 's/.*position = "([^"]+)".*/\1/p' <<<"$spec")"
-  # Skip the "catch-all" default line (empty port).
-  [[ -z "$port" ]] && continue
-  # Skip lines with non-literal positions (e.g. "auto").
-  [[ "$pos" == *x* ]] || continue
-  EXPECT_POS["$port"]="${pos/x/ }"
-  # Capture an explicit "transform = N" if present in the spec.
-  if [[ "$spec" =~ transform[[:space:]]*=[[:space:]]*([0-9]+) ]]; then
-    EXPECT_TRANSFORM["$port"]="${BASH_REMATCH[1]}"
-  fi
-done < <(grep -E '^\s*hl\.monitor\(' "$CONF")
+declare -A EXPECT_TRANSFORM=([DP-2]=3 [DP-3]=3)
 
-if (( ${#EXPECT_POS[@]} == 0 )); then
-  log "no hl.monitor lines found in $CONF; exiting"
-  exit 1
-fi
+# Recompute expected positions from DP-1's scale (state file, else the live
+# value). Called every cycle so a scale change needs no watcher restart.
+compute_expected() {
+  local scale="" w h y
+  [[ -s $SCALE_STATE ]] && scale="$(<"$SCALE_STATE")"
+  if [[ -z $scale ]]; then
+    scale="$(hyprctl -j monitors 2>/dev/null | jq -r '.[] | select(.name=="DP-1") | .scale // empty')"
+  fi
+  [[ -z $scale ]] && scale=1.25
+  w="$(awk -v s="$scale" -v W="$DP1_W" 'BEGIN{printf "%d", W/s + 0.5}')"
+  h="$(awk -v s="$scale" -v H="$DP1_H" 'BEGIN{printf "%d", H/s + 0.5}')"
+  y=$((1920 - h))
+  EXPECT_POS=(
+    [DP-1]="0 $y"
+    [DP-2]="$w 0"
+    [DP-3]="$((w + 1080 - 1920)) 1920"
+    [tablet]="-1920 $y"
+  )
+}
 
 apply_all() {
   hyprctl reload >/dev/null
 }
 
-# Returns 0 if all tracked ports match expected position AND transform, else 1.
+# Returns 0 if all connected tracked ports match expected position AND
+# transform, else 1.
 check_positions() {
   local json port want_x want_y got_x got_y want_t got_t
   json="$(hyprctl -j monitors)" || return 0  # hyprland not ready
+  compute_expected
   for port in "${!EXPECT_POS[@]}"; do
     read -r want_x want_y <<<"${EXPECT_POS[$port]}"
     # Skip if the monitor isn't currently connected.
@@ -91,7 +96,7 @@ listen_events &
 LISTENER_PID=$!
 trap 'kill "$LISTENER_PID" 2>/dev/null' EXIT
 
-log "started; tracking ports: ${!EXPECT_POS[*]}"
+log "started; tracking ports: DP-1 DP-2 DP-3 tablet (positions derived from DP-1 scale)"
 
 # Poll loop.
 while sleep "$POLL_INTERVAL"; do

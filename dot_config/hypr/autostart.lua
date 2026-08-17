@@ -17,7 +17,9 @@ o.launch_on_start("hyprsunset")
 o.exec_on_start("wl-gammarelay-rs")
 
 -- Re-pin monitor layout after hotplug/DPMS drift.
-o.exec_on_start(scripts .. "/monitor-watcher.sh")
+-- Disabled by request (it fought manual monitor adjustments). Re-enable by
+-- uncommenting if the old unlock/DPMS drift (flipped portrait strip) returns.
+-- o.exec_on_start(scripts .. "/monitor-watcher.sh")
 
 -- Pre-build the DDC brightness bus cache so the first brightness keypress is instant.
 o.exec_on_start(scripts .. "/brightness-ddc.sh warmup")
