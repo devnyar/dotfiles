@@ -1,0 +1,6 @@
+[tools]
+claude = "latest"
+codex = "latest"
+gh = "latest"
+java = "latest"
+node = "25.9.0"
