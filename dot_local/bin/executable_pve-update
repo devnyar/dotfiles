@@ -1,0 +1,399 @@
+#!/usr/bin/env bash
+#
+# pve-update — one-shot maintenance for a Proxmox node and its LXC containers.
+#
+# Replaces hand-running the community-scripts tools (update-repo, update-lxcs,
+# clean-lxcs, execute) one at a time. Non-interactive by design: every choice is
+# a flag, so it is safe to put in cron.
+#
+# There is deliberately no snapshot/backup phase — container rootfs on `dir`
+# storage cannot be snapshotted at all, and daily backup jobs already cover
+# rollback.
+
+set -euo pipefail
+
+VERSION=1.0.0
+LOCKFILE=/var/lock/pve-update.lock
+JOURNAL_KEEP=3d          # journal retention applied during --clean
+
+# ---------------------------------------------------------------- options ---
+DO_HOST=1 DO_UPDATE=1 DO_CLEAN=1 DO_REPORT=1
+ONLY='' SKIP='' INCLUDE_STOPPED=0 DRY_RUN=0 ASSUME_YES=0 QUIET=0 TIMEOUT=900
+
+usage() {
+  cat <<'__HELPTEXT__'
+pve-update — update and clean a Proxmox node and all of its LXC containers.
+
+USAGE
+    pve-update [OPTIONS]
+
+PHASES (all run by default, in this order)
+    host      normalise the PVE apt repos, then upgrade the host itself
+    update    apt/apk/dnf upgrade inside each running container
+    clean     reclaim disk inside each container (pkg cache, journals, logs)
+    report    list containers and the host that need a restart
+
+OPTIONS
+    --no-host            skip the host phase
+    --no-update          skip container upgrades
+    --no-clean           skip container cleanup
+    --no-report          skip the restart report
+    --host-only          shorthand for --no-update --no-clean --no-report
+
+    --only IDS           only these VMIDs (comma-separated, e.g. 101,110,116)
+    --skip IDS           exclude these VMIDs
+    --include-stopped    start stopped containers, process them, stop again
+                         (default: stopped containers are skipped)
+
+    -t, --timeout SEC    per-container timeout, default 900
+    -n, --dry-run        print what would run, change nothing
+    -y, --yes            do not prompt before making changes
+    -q, --quiet          only warnings, errors and the final summary
+    -V, --version        print version
+    -h, --help           this help
+
+EXAMPLES
+    pve-update -y                        # everything, unattended
+    pve-update --host-only -y            # just the node
+    pve-update --skip 112,110 -y         # leave plex and immich alone
+    pve-update --only 116 -n             # dry-run against the Alpine CT
+    pve-update --no-clean --no-host -y   # upgrade containers only
+
+EXIT STATUS
+    0  everything succeeded
+    1  usage or environment error
+    2  one or more containers failed (see the summary)
+__HELPTEXT__
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --no-host)         DO_HOST=0 ;;
+    --no-update)       DO_UPDATE=0 ;;
+    --no-clean)        DO_CLEAN=0 ;;
+    --no-report)       DO_REPORT=0 ;;
+    --host-only)       DO_UPDATE=0; DO_CLEAN=0; DO_REPORT=0 ;;
+    --only)            ONLY="${2:-}"; shift ;;
+    --skip)            SKIP="${2:-}"; shift ;;
+    --include-stopped) INCLUDE_STOPPED=1 ;;
+    -t|--timeout)      TIMEOUT="${2:-}"; shift ;;
+    -n|--dry-run)      DRY_RUN=1 ;;
+    -y|--yes)          ASSUME_YES=1 ;;
+    -q|--quiet)        QUIET=1 ;;
+    -V|--version)      echo "pve-update $VERSION"; exit 0 ;;
+    -h|--help)         usage; exit 0 ;;
+    *) echo "pve-update: unknown option '$1' (try --help)" >&2; exit 1 ;;
+  esac
+  shift
+done
+
+# ------------------------------------------------------------------ output --
+if [[ -t 1 ]]; then
+  R=$'\033[0;31m'; G=$'\033[0;32m'; Y=$'\033[1;33m'; B=$'\033[0;34m'
+  DIM=$'\033[2m'; BOLD=$'\033[1m'; N=$'\033[0m'
+else
+  R='' G='' Y='' B='' DIM='' BOLD='' N=''
+fi
+
+log()   { (( QUIET )) || echo "${G}[+]${N} $*"; }
+step()  { (( QUIET )) || echo "${B}==>${N} ${BOLD}$*${N}"; }
+warn()  { echo "${Y}[!]${N} $*" >&2; }
+error() { echo "${R}[x]${N} $*" >&2; }
+dim()   { (( QUIET )) || echo "${DIM}    $*${N}"; }
+
+# ------------------------------------------------------------ preconditions --
+command -v pct >/dev/null 2>&1 || { error "pct not found — this is not a Proxmox VE node."; exit 1; }
+[[ $EUID -eq 0 ]] || { error "must run as root."; exit 1; }
+[[ "$TIMEOUT" =~ ^[0-9]+$ ]] || { error "--timeout must be an integer (got '$TIMEOUT')"; exit 1; }
+
+NODE=$(hostname)
+
+# One run at a time: these phases hold apt locks and restart services.
+exec 9>"$LOCKFILE"
+flock -n 9 || { error "another pve-update is already running on $NODE."; exit 1; }
+
+# Run a command, or just show it under --dry-run.
+run() {
+  if (( DRY_RUN )); then
+    echo "${DIM}    would run:${N} $*"
+    return 0
+  fi
+  "$@"
+}
+
+confirm() {
+  (( ASSUME_YES || DRY_RUN )) && return 0
+  local reply
+  read -rp "${Y}?${N} $1 [y/N] " reply
+  [[ "$reply" =~ ^[Yy]$ ]]
+}
+
+in_csv() {  # in_csv <needle> <csv>
+  local needle=$1 csv=$2 item
+  [[ -z "$csv" ]] && return 1
+  IFS=',' read -ra item <<< "$csv"
+  local i; for i in "${item[@]}"; do [[ "${i// /}" == "$needle" ]] && return 0; done
+  return 1
+}
+
+# ------------------------------------------------------- remote payloads ----
+# Passed to `pct exec <id> -- /bin/sh -c "$payload"`. Quoted heredocs, so $ and
+# backticks reach the container verbatim. POSIX sh only — CT 116 is Alpine.
+
+read -r -d '' PAYLOAD_DETECT <<'SH' || true
+if [ -r /etc/os-release ]; then . /etc/os-release; echo "${ID:-unknown}"; else echo unknown; fi
+SH
+
+read -r -d '' PAYLOAD_UPDATE_APT <<'SH' || true
+set -e
+export DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a
+apt-get update -qq
+apt-get -y -o Dpkg::Options::=--force-confold -o Dpkg::Options::=--force-confdef dist-upgrade
+apt-get -y --purge autoremove
+SH
+
+read -r -d '' PAYLOAD_UPDATE_APK <<'SH' || true
+set -e
+apk update
+apk upgrade --available
+SH
+
+read -r -d '' PAYLOAD_UPDATE_DNF <<'SH' || true
+set -e
+dnf -y upgrade --refresh
+dnf -y autoremove
+SH
+
+read -r -d '' PAYLOAD_CLEAN <<'SH' || true
+if command -v apt-get >/dev/null 2>&1; then
+  apt-get -y --purge autoremove >/dev/null 2>&1 || true
+  apt-get -y clean >/dev/null 2>&1 || true
+  rm -rf /var/lib/apt/lists/* 2>/dev/null || true
+fi
+if command -v apk >/dev/null 2>&1; then rm -rf /var/cache/apk/* 2>/dev/null || true; fi
+if command -v dnf >/dev/null 2>&1; then dnf -y clean all >/dev/null 2>&1 || true; fi
+if command -v journalctl >/dev/null 2>&1; then
+  journalctl --vacuum-time=__JOURNAL_KEEP__ >/dev/null 2>&1 || true
+fi
+# Rotated and archived logs only — never a live log file.
+find /var/log -type f \( -name '*.gz' -o -name '*.xz' -o -name '*.old' \
+  -o -name '*.[0-9]' -o -name '*.[0-9].*' \) -delete 2>/dev/null || true
+rm -rf /tmp/* /var/tmp/* 2>/dev/null || true
+SH
+
+read -r -d '' PAYLOAD_RESTART <<'SH' || true
+if [ -f /var/run/reboot-required ] || [ -f /run/reboot-required ]; then
+  echo "REBOOT"
+elif command -v needrestart >/dev/null 2>&1; then
+  svc=$(needrestart -b -r l 2>/dev/null | awk -F': ' '/^NEEDRESTART-SVC/ {print $2}' | tr '\n' ' ')
+  [ -n "$svc" ] && echo "SERVICES $svc" || echo "OK"
+else
+  echo "OK"
+fi
+SH
+
+# ---------------------------------------------------------- container list --
+mapfile -t ALL_CTS < <(pct list | awk 'NR>1 {print $1}')
+(( ${#ALL_CTS[@]} )) || warn "no containers found on $NODE."
+
+declare -a TARGETS=()
+for id in "${ALL_CTS[@]}"; do
+  if [[ -n "$ONLY" ]] && ! in_csv "$id" "$ONLY"; then continue; fi
+  if in_csv "$id" "$SKIP"; then continue; fi
+  # A template is a golden image, never a running system to patch.
+  if pct config "$id" 2>/dev/null | grep -qE '^template:\s*1'; then
+    dim "CT $id is a template — skipping"
+    continue
+  fi
+  TARGETS+=("$id")
+done
+
+ct_name()   { pct config "$1" 2>/dev/null | awk -F': ' '/^hostname:/ {print $2; exit}'; }
+ct_status() { pct status "$1" 2>/dev/null | awk '{print $2; exit}'; }
+
+# --------------------------------------------------------------- host phase --
+host_repos() {
+  step "Checking PVE apt repositories"
+  local changed=0 f
+
+  # PVE 9 ships deb822 .sources files. Only flip Enabled:, never rewrite a file
+  # wholesale — these hosts carry hand-added third-party repos.
+  for f in /etc/apt/sources.list.d/pve-enterprise.sources /etc/apt/sources.list.d/ceph.sources; do
+    [[ -f "$f" ]] || continue
+    if grep -qiE '^Enabled:\s*false' "$f"; then
+      dim "$(basename "$f") already disabled"
+    else
+      log "disabling enterprise repo: $(basename "$f")"
+      if grep -qiE '^Enabled:' "$f"; then
+        run sed -i -E 's/^Enabled:.*/Enabled: false/I' "$f"
+      else
+        run bash -c "printf 'Enabled: false\n' >> '$f'"
+      fi
+      changed=1
+    fi
+  done
+
+  if [[ -f /etc/apt/sources.list.d/proxmox.sources ]] \
+     && grep -q 'pve-no-subscription' /etc/apt/sources.list.d/proxmox.sources; then
+    dim "pve-no-subscription repo present"
+  else
+    warn "pve-no-subscription repo not found — not adding it automatically."
+    warn "  Add it by hand if this node should track the free repo."
+  fi
+
+  # Suite drift is silent and bites at the next dist-upgrade.
+  local host_suite
+  host_suite=$(awk -F'=' '/^VERSION_CODENAME=/{print $2}' /etc/os-release)
+  if [[ -n "$host_suite" ]]; then
+    while IFS= read -r line; do
+      warn "repo suite mismatch (host is '$host_suite'): $line"
+    done < <(grep -rhoE '^deb .*' /etc/apt/sources.list.d/*.list 2>/dev/null \
+             | grep -vE "[ /]$host_suite[ /]" || true)
+  fi
+
+  (( changed )) && log "repository changes applied" || dim "repositories already correct"
+}
+
+host_upgrade() {
+  step "Upgrading host $NODE"
+  run env DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update -qq
+  run env DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a \
+      apt-get -y -o Dpkg::Options::=--force-confold -o Dpkg::Options::=--force-confdef dist-upgrade
+  run env DEBIAN_FRONTEND=noninteractive apt-get -y --purge autoremove
+}
+
+# ---------------------------------------------------------- container phase --
+declare -A RESULT=() RESTART=()
+
+ct_exec() {  # ct_exec <id> <payload>
+  local id=$1 payload=$2
+  timeout "$TIMEOUT" pct exec "$id" -- /bin/sh -c "$payload"
+}
+
+process_ct() {
+  local id=$1 name status started=0 os rc=0
+  name=$(ct_name "$id"); name=${name:-ct$id}
+  status=$(ct_status "$id")
+
+  if [[ "$status" != "running" ]]; then
+    if (( ! INCLUDE_STOPPED )); then
+      dim "CT $id ($name) is $status — skipping (use --include-stopped)"
+      RESULT[$id]="skipped:$status"
+      return 0
+    fi
+    step "CT $id ($name) — starting (was $status)"
+    run pct start "$id" || { RESULT[$id]="failed:start"; return 1; }
+    (( DRY_RUN )) || sleep 5
+    started=1
+  fi
+
+  os=$( (( DRY_RUN )) && echo debian || ct_exec "$id" "$PAYLOAD_DETECT" 2>/dev/null | tr -d '\r' )
+  os=${os:-unknown}
+  step "CT $id ($name) — $os"
+
+  if (( DO_UPDATE )); then
+    local payload=''
+    case "$os" in
+      debian|ubuntu|devuan|raspbian|linuxmint) payload=$PAYLOAD_UPDATE_APT ;;
+      alpine)                                  payload=$PAYLOAD_UPDATE_APK ;;
+      fedora|rocky|almalinux|centos|rhel)      payload=$PAYLOAD_UPDATE_DNF ;;
+      *) warn "CT $id ($name): unrecognised OS '$os' — no package manager mapping, skipping upgrade" ;;
+    esac
+    if [[ -n "$payload" ]]; then
+      if (( DRY_RUN )); then
+        echo "${DIM}    would run package upgrade for $os inside CT $id${N}"
+      elif ct_exec "$id" "$payload" > >( (( QUIET )) && cat >/dev/null || sed 's/^/    /' ) 2>&1; then
+        log "CT $id ($name): upgraded"
+      else
+        rc=$?
+        [[ $rc -eq 124 ]] && error "CT $id ($name): upgrade timed out after ${TIMEOUT}s" \
+                          || error "CT $id ($name): upgrade failed (exit $rc)"
+        RESULT[$id]="failed:update"
+      fi
+    fi
+  fi
+
+  if (( DO_CLEAN )) && [[ "${RESULT[$id]:-}" != failed:* ]]; then
+    local before after freed clean_payload
+    clean_payload=${PAYLOAD_CLEAN//__JOURNAL_KEEP__/$JOURNAL_KEEP}
+    if (( DRY_RUN )); then
+      echo "${DIM}    would clean package cache, journals and rotated logs in CT $id${N}"
+    else
+      before=$(ct_exec "$id" "df -Pk / | awk 'NR==2{print \$3}'" 2>/dev/null || echo 0)
+      ct_exec "$id" "$clean_payload" >/dev/null 2>&1 || warn "CT $id ($name): cleanup reported errors"
+      after=$(ct_exec "$id" "df -Pk / | awk 'NR==2{print \$3}'" 2>/dev/null || echo 0)
+      if [[ "$before" =~ ^[0-9]+$ && "$after" =~ ^[0-9]+$ && $before -gt $after ]]; then
+        freed=$(( (before - after) / 1024 ))
+        log "CT $id ($name): cleaned, ${freed} MiB freed"
+      else
+        dim "CT $id ($name): cleaned, nothing to reclaim"
+      fi
+    fi
+  fi
+
+  if (( DO_REPORT )) && ! (( DRY_RUN )); then
+    local r
+    r=$(ct_exec "$id" "$PAYLOAD_RESTART" 2>/dev/null | tr -d '\r' || echo OK)
+    [[ "$r" != "OK" ]] && RESTART[$id]="$r"
+  fi
+
+  if (( started )); then
+    step "CT $id ($name) — stopping again (was stopped before this run)"
+    run pct stop "$id" || warn "CT $id ($name): failed to stop again"
+  fi
+
+  [[ -n "${RESULT[$id]:-}" ]] || RESULT[$id]=ok
+  return 0
+}
+
+# ---------------------------------------------------------------- main ------
+echo "${BOLD}pve-update $VERSION${N} — node ${BOLD}$NODE${N}$( (( DRY_RUN )) && echo " ${Y}(dry run)${N}")"
+echo "phases:$( (( DO_HOST )) && echo " host")$( (( DO_UPDATE )) && echo " update")$( (( DO_CLEAN )) && echo " clean")$( (( DO_REPORT )) && echo " report")"
+echo "containers: ${#TARGETS[@]}$( [[ -n "$ONLY" ]] && echo " (--only $ONLY)")$( [[ -n "$SKIP" ]] && echo " (--skip $SKIP)")"
+echo
+
+if ! confirm "Proceed on $NODE?"; then echo "aborted."; exit 0; fi
+echo
+
+if (( DO_HOST )); then
+  host_repos
+  host_upgrade
+  echo
+fi
+
+for id in "${TARGETS[@]}"; do
+  process_ct "$id" || true
+  echo
+done
+
+# --------------------------------------------------------------- summary ----
+step "Summary — $NODE"
+failed=0
+for id in "${TARGETS[@]}"; do
+  name=$(ct_name "$id"); name=${name:-ct$id}
+  case "${RESULT[$id]:-unknown}" in
+    ok)        printf "  ${G}ok${N}      %-5s %s\n" "$id" "$name" ;;
+    skipped:*) printf "  ${DIM}skipped${N} %-5s %s (${RESULT[$id]#skipped:})\n" "$id" "$name" ;;
+    failed:*)  printf "  ${R}FAILED${N}  %-5s %s (${RESULT[$id]#failed:})\n" "$id" "$name"; failed=1 ;;
+    *)         printf "  ${Y}?${N}       %-5s %s\n" "$id" "$name" ;;
+  esac
+done
+
+if (( DO_REPORT )); then
+  echo
+  step "Restart needed"
+  any=0
+  if [[ -f /var/run/reboot-required || -f /run/reboot-required ]]; then
+    echo "  ${Y}host${N}    $NODE — reboot required"; any=1
+  fi
+  for id in "${!RESTART[@]}"; do
+    name=$(ct_name "$id"); name=${name:-ct$id}
+    case "${RESTART[$id]}" in
+      REBOOT)     echo "  ${Y}CT $id${N}   $name — reboot required (pct reboot $id)"; any=1 ;;
+      SERVICES\ *) echo "  ${Y}CT $id${N}   $name — stale services: ${RESTART[$id]#SERVICES }"; any=1 ;;
+    esac
+  done
+  (( any )) || echo "  ${G}nothing needs restarting${N}"
+fi
+
+exit $(( failed ? 2 : 0 ))

@@ -75,3 +75,10 @@ install-tailscale-lan-bypass.sh
 # systemd unit + sudoers rule, Linux-only
 install-tailscale-lan-bypass.sh
 {{- end }}
+
+{{ if not (stat "/usr/sbin/pct") -}}
+# pve-update only makes sense on a Proxmox VE node. `stat` is evaluated on the
+# machine running `chezmoi apply`, so this keeps it off the workstation, macOS
+# and ordinary LXCs while still deploying it to the PVE hosts.
+.local/bin/pve-update
+{{- end }}
