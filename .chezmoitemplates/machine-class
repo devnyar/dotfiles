@@ -14,7 +14,12 @@
 {{- else if eq .chezmoi.os "darwin" -}}
 mac
 {{- else if hasKey .chezmoi "osRelease" -}}
-{{- if or (eq .chezmoi.osRelease.id "omarchy") (contains "arch" (.chezmoi.osRelease.idLike | default "")) -}}
+{{- /* Debian/Ubuntu os-release has no ID_LIKE at all, and chezmoi renders with
+       missingkey=error, so `.idLike | default ""` still hard-fails. Probe the
+       key before reading it. */ -}}
+{{- $idLike := "" -}}
+{{- if hasKey .chezmoi.osRelease "idLike" }}{{ $idLike = .chezmoi.osRelease.idLike }}{{ end -}}
+{{- if or (eq .chezmoi.osRelease.id "omarchy") (contains "arch" $idLike) -}}
 omarchy
 {{- else -}}
 server
