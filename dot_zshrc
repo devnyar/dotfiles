@@ -1,15 +1,20 @@
-# If you come from bash you might have to change your $PATH.
-export PATH=$HOME/bin:$HOME/.local/bin:/usr/local/bin:/opt/android-sdk/platform-tools:/home/banyar/rlos-workspace/bin:$PATH
+# Portable base shared with bash: PATH, listing aliases, helpers.
+# Sourced first so oh-my-zsh, Omarchy and ~/.zshrc.local all override it.
+[ -r "$HOME/.config/shell/common.sh" ] && source "$HOME/.config/shell/common.sh"
 
 # Path to your Oh My Zsh installation.
 export ZSH="$HOME/.oh-my-zsh"
+
+# Per-host overrides that must land BEFORE oh-my-zsh loads (ZSH_THEME, plugins).
+# NOT managed by chezmoi — create it only on machines that need it.
+[ -r "$HOME/.zshrc.pre.local" ] && source "$HOME/.zshrc.pre.local"
 
 # Set name of the theme to load --- if set to "random", it will
 # load a random theme each time Oh My Zsh is loaded, in which case,
 # to know which specific one was loaded, run: echo $RANDOM_THEME
 # See https://github.com/ohmyzsh/ohmyzsh/wiki/Themes
 # ZSH_THEME="nord-extended/nord"
-ZSH_THEME="passion"
+: ${ZSH_THEME:=passion}   # default; override in ~/.zshrc.pre.local
 
 # Set list of themes to pick from when loading at random
 # Setting this variable when ZSH_THEME=random will cause zsh to load
@@ -71,9 +76,12 @@ ZSH_THEME="passion"
 # Custom plugins may be added to $ZSH_CUSTOM/plugins/
 # Example format: plugins=(rails git textmate ruby lighthouse)
 # Add wisely, as too many plugins slow down shell startup.
-plugins=(git zsh-autosuggestions zsh-syntax-highlighting z fzf)
+# Default plugin set; override in ~/.zshrc.pre.local (servers may not have the
+# custom plugins installed, in which case oh-my-zsh just warns).
+(( ${+plugins} )) || plugins=(git zsh-autosuggestions zsh-syntax-highlighting z fzf)
 
-source $ZSH/oh-my-zsh.sh
+# Guarded: oh-my-zsh is not installed everywhere this file is deployed.
+[ -r "$ZSH/oh-my-zsh.sh" ] && source "$ZSH/oh-my-zsh.sh"
 
 # Source omarchy's bash aliases/functions (zsh-compatible subset).
 # Loaded after OMZ to override its plugin aliases (e.g., git plugin's gcm, ls),
@@ -125,3 +133,7 @@ fi
 # Example aliases
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
+
+# Per-host extras, NOT managed by chezmoi. Create ~/.zshrc.local on any machine
+# that needs host-specific aliases, PATH entries, etc.
+[ -r "$HOME/.zshrc.local" ] && source "$HOME/.zshrc.local"

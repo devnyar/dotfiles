@@ -1,5 +1,4 @@
-# environment paths
-export PATH=$HOME/.opencode/bin:$HOME/.local/bin:$PATH
+# environment paths are set in ~/.config/shell/common.sh (shared with bash)
 
 alias reload="source ~/.zshrc"
 

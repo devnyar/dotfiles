@@ -1,6 +1,6 @@
 # Dotfiles — agent instructions
 
-This repo (source: `~/.local/share/chezmoi/`) tracks user configs for an Omarchy (Arch + Hyprland) system, managed with **chezmoi**. Files are named with chezmoi's attribute prefixes (`dot_`, `executable_`, …) and deployed as real files at their runtime locations (e.g. `~/.config/hypr/`, `~/.zshrc`) via `chezmoi apply` — there are no symlinks back into this repo.
+This repo (source: `~/.local/share/chezmoi/`) tracks user configs for three classes of machine — an Omarchy (Arch + Hyprland) workstation, macOS workstations, and headless Linux servers (Proxmox hosts and LXCs) — managed with **chezmoi**. Files are named with chezmoi's attribute prefixes (`dot_`, `executable_`, …) and deployed as real files at their runtime locations (e.g. `~/.config/hypr/`, `~/.zshrc`) via `chezmoi apply` — there are no symlinks back into this repo.
 
 ## How it works
 
@@ -9,6 +9,56 @@ This repo (source: `~/.local/share/chezmoi/`) tracks user configs for an Omarchy
 - `chezmoi diff` previews pending changes before applying.
 - Source naming maps to target paths: `dot_config/hypr/bindings.conf` → `~/.config/hypr/bindings.conf`, `dot_zshrc` → `~/.zshrc`, `executable_foo.sh` → `foo.sh` deployed with the executable bit set, etc. See `chezmoi help` / the chezmoi docs for the full attribute list.
 - `logid/logid.cfg` is tracked here for reference only (see below) — it is excluded from `chezmoi apply` via `.chezmoiignore` since it targets a root-owned system path.
+
+## Machine classes
+
+One repo, three targets. `.chezmoitemplates/machine-class` resolves the class of
+the machine being applied to:
+
+| Class | Detected when | Gets |
+|---|---|---|
+| `omarchy` | `osRelease.id` is `omarchy`, or `idLike` contains `arch` | everything |
+| `mac` | `.chezmoi.os` is `darwin` | everything except Wayland/systemd/Omarchy-coupled configs |
+| `server` | any other Linux | shell + core CLI only (`.bashrc` `.bash_profile` `.zshrc` `.config/shell` `.config/git` `.config/tmux` `.config/btop` `.local/bin`) |
+
+`.chezmoi.osRelease` does not exist on macOS, so the darwin check must come
+first — that's why the class lives in one shared template instead of being
+re-derived per file.
+
+Override the detection on any machine with `machine = "omarchy" | "mac" | "server"`
+under `[data]` in `~/.config/chezmoi/chezmoi.toml`.
+
+`.chezmoiignore` is itself a template: it consumes the class and excludes the
+per-class target lists. To check what a class would get without owning such a
+machine:
+
+```
+printf '[data]\n machine = "server"\n' > /tmp/c.toml
+chezmoi managed --config=/tmp/c.toml    # what would deploy
+chezmoi cat --config=/tmp/c.toml ~/.config/git/config
+```
+
+Note `stat`/`lookPath` in templates evaluate on the machine running `apply`, so
+those render correctly on the real host even if a dry run here says otherwise.
+
+## Shell layout
+
+Precedence, lowest to highest — each layer may override the one before it:
+
+1. **`~/.config/shell/common.sh`** — the portable base, sourced by both
+   `.bashrc` and `.zshrc` on every machine. PATH (Homebrew, Android SDK on both
+   Linux and macOS layouts, `~/.local/bin`), listing aliases (eza → GNU ls →
+   BSD ls), `lanip`/`wanip`, `mkcd`. Must stay POSIX-ish: no bashisms, no
+   zsh-isms. Never assume GNU flags — macOS ships BSD userland.
+2. **Platform config** — Omarchy's `default/bash/{rc,aliases,fns}` and
+   oh-my-zsh, both guarded by file-existence checks so the same rc files work
+   on a Proxmox host with neither installed.
+3. **Per-host files, NOT managed by chezmoi** — create these only where needed:
+   - `~/.bashrc.local`, `~/.zshrc.local` — host-specific aliases, PATH, PS1, nvm
+   - `~/.zshrc.pre.local` — sourced *before* oh-my-zsh, for `ZSH_THEME` and
+     `plugins` (they have no effect if set afterwards)
+
+Anything host-specific belongs in layer 3, never in the tracked rc files.
 
 ## Adding a new tracked config
 

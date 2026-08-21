@@ -1,0 +1,24 @@
+{{- /*
+   Emits this machine's class: "omarchy", "mac", or "server".
+
+     omarchy  the Arch/Hyprland workstation (full desktop config)
+     mac      macOS workstation (no Wayland/systemd/Omarchy)
+     server   headless Linux — Proxmox hosts, LXCs, VMs (shell + core CLI only)
+
+   Override by setting `machine = "..."` under [data] in
+   ~/.config/chezmoi/chezmoi.toml. Note .chezmoi.osRelease only exists on
+   Linux, so the darwin check must come first.
+*/ -}}
+{{- if hasKey . "machine" -}}
+{{- .machine -}}
+{{- else if eq .chezmoi.os "darwin" -}}
+mac
+{{- else if hasKey .chezmoi "osRelease" -}}
+{{- if or (eq .chezmoi.osRelease.id "omarchy") (contains "arch" (.chezmoi.osRelease.idLike | default "")) -}}
+omarchy
+{{- else -}}
+server
+{{- end -}}
+{{- else -}}
+server
+{{- end -}}

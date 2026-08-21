@@ -4,11 +4,35 @@
 # If not running interactively, don't do anything else (leave this above the rc source)
 [[ $- != *i* ]] && return
 
+# Portable base shared with zsh (PATH, colors, aliases) — all machines.
+# Loaded first so the platform sections below can override it.
+[[ -r "$HOME/.config/shell/common.sh" ]] && source "$HOME/.config/shell/common.sh"
+
 # All the default Omarchy aliases and functions
 # (don't mess with these directly, just overwrite them here!)
-source "$OMARCHY_PATH/default/bash/rc"
+# Guarded: Omarchy exists only on the workstation; this file also lands on
+# macOS and on the Proxmox hosts.
+if [[ -r "${OMARCHY_PATH:-/usr/share/omarchy}/default/bash/rc" ]]; then
+  source "${OMARCHY_PATH:-/usr/share/omarchy}/default/bash/rc"
+else
+  # Bash defaults for machines without Omarchy's rc (macOS, Proxmox, LXCs).
+  export HISTTIMEFORMAT="%d/%m/%y %T "
+  HISTSIZE=10000
+  HISTFILESIZE=20000
+  shopt -s histappend checkwinsize 2>/dev/null
+  for _bc in /usr/share/bash-completion/bash_completion \
+             /etc/profile.d/bash_completion.sh \
+             /opt/homebrew/etc/profile.d/bash_completion.sh; do
+    [[ -r "$_bc" ]] && { source "$_bc"; break; }
+  done
+  unset _bc
+fi
 
 # Add your own exports, aliases, and functions here.
 #
 # Make an alias for invoking commands you use constantly
 # alias p='python'
+
+# Per-host extras, NOT managed by chezmoi. Create ~/.bashrc.local on any
+# machine that needs host-specific aliases, PATH entries, PS1, nvm, etc.
+[[ -r "$HOME/.bashrc.local" ]] && source "$HOME/.bashrc.local"

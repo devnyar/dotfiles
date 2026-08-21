@@ -1,2 +1,77 @@
+{{- $class := includeTemplate "machine-class" . -}}
 CLAUDE.md
 logid
+
+{{ if eq $class "server" -}}
+# ===========================================================================
+# HEADLESS LINUX (Proxmox hosts, LXCs, VMs)
+# Deploy only the shell + core CLI configs. Kept:
+#   .bashrc .bash_profile .zshrc .config/shell .config/git
+#   .config/tmux .config/btop .local/bin
+# ===========================================================================
+
+# GUI / Wayland / desktop-only
+.XCompose
+.ideavimrc
+.config/alacritty
+.config/cava
+.config/environment.d
+.config/foot
+.config/ghostty
+.config/hypr
+.config/kitty
+.config/omarchy
+.local/share/applications
+
+# Desktop apps (and their secret-bearing templates)
+.config/cliamp
+.local/share/line
+
+# Workstation-only tooling
+.claude
+.config/lazydocker
+.config/mise
+
+# oh-my-zsh custom aliases are workstation-specific (adb, rlos, tailscale
+# profiles) and are only sourced from the Omarchy branch of .zshrc anyway.
+.oh-my-zsh
+
+# .profile carries a JetBrains Toolbox PATH entry and would clobber the
+# distro-provided /root/.profile.
+.profile
+
+# Installs a systemd unit + sudoers rule for the workstation's Tailscale setup.
+install-tailscale-lan-bypass.sh
+{{- end }}
+
+{{ if eq $class "mac" -}}
+# ===========================================================================
+# macOS
+# Full workstation config minus anything Linux-specific.
+# ===========================================================================
+
+# Wayland / Hyprland / X11 / systemd — no macOS equivalent
+.XCompose
+.config/hypr
+.config/foot
+.config/environment.d
+.config/omarchy
+.local/share/applications
+
+# Terminal configs import Omarchy's theme files (~/.local/state/omarchy/...)
+# and set GTK-only options. Drop the `.config/<term>` line below once a
+# macOS-specific variant exists.
+.config/alacritty
+.config/ghostty
+.config/kitty
+
+# Linux-only: cava's shader setup, and the `line` driver's autostart scripts
+.config/cava
+.local/share/line
+
+# .profile hardcodes the Linux JetBrains Toolbox path
+.profile
+
+# systemd unit + sudoers rule, Linux-only
+install-tailscale-lan-bypass.sh
+{{- end }}

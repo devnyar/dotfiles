@@ -36,9 +36,18 @@
 	smudge = git-lfs smudge -- %f
 	process = git-lfs filter-process
 	required = true
+{{- /* Prefer the real gh binary over a mise/asdf shim; skip the block entirely
+       on machines without gh (Proxmox hosts), where git would otherwise fail
+       with "credential helper not found" on any github.com HTTPS operation. */ -}}
+{{- $gh := "" -}}
+{{- range list "/usr/bin/gh" "/opt/homebrew/bin/gh" "/usr/local/bin/gh" -}}
+{{- if and (not $gh) (stat .) }}{{ $gh = . }}{{ end -}}
+{{- end }}
+{{ if $gh -}}
 [credential "https://github.com"]
 	helper = 
-	helper = !/usr/bin/gh auth git-credential
+	helper = !{{ $gh }} auth git-credential
 [credential "https://gist.github.com"]
 	helper = 
-	helper = !/usr/bin/gh auth git-credential
+	helper = !{{ $gh }} auth git-credential
+{{ end -}}
