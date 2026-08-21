@@ -287,9 +287,19 @@ process_ct() {
     started=1
   fi
 
-  os=$( (( DRY_RUN )) && echo debian || ct_exec "$id" "$PAYLOAD_DETECT" 2>/dev/null | tr -d '\r' )
+  # Detection is read-only, so it runs under --dry-run too — otherwise a dry run
+  # would claim every container is Debian and hide the Alpine/Ubuntu ones.
+  if [[ "$(ct_status "$id")" == running ]]; then
+    os=$(ct_exec "$id" "$PAYLOAD_DETECT" 2>/dev/null | tr -d '\r' || echo unknown)
+  else
+    os=unknown
+  fi
   os=${os:-unknown}
-  step "CT $id ($name) — $os"
+  if [[ "$os" == unknown ]] && (( DRY_RUN )); then
+    step "CT $id ($name) — not running, OS would be detected after start"
+  else
+    step "CT $id ($name) — $os"
+  fi
 
   if (( DO_UPDATE )); then
     local payload=''
@@ -301,7 +311,13 @@ process_ct() {
     esac
     if [[ -n "$payload" ]]; then
       if (( DRY_RUN )); then
-        echo "${DIM}    would run package upgrade for $os inside CT $id${N}"
+        local mgr
+        case "$os" in
+          alpine) mgr='apk update && apk upgrade' ;;
+          fedora|rocky|almalinux|centos|rhel) mgr='dnf upgrade --refresh' ;;
+          *) mgr='apt-get update && apt-get dist-upgrade && apt-get autoremove' ;;
+        esac
+        echo "${DIM}    would run:${N} $mgr  ${DIM}(in CT $id, $os)${N}"
       elif ct_exec "$id" "$payload" > >( (( QUIET )) && cat >/dev/null || sed 's/^/    /' ) 2>&1; then
         log "CT $id ($name): upgraded"
       else
