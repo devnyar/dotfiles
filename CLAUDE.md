@@ -41,6 +41,14 @@ chezmoi cat --config=/tmp/c.toml ~/.config/git/config
 Note `stat`/`lookPath` in templates evaluate on the machine running `apply`, so
 those render correctly on the real host even if a dry run here says otherwise.
 
+### Host-capability gating
+
+Class is not always the right axis. `.local/bin/pve-update` is useful only on a
+Proxmox node, not on every `server`, so `.chezmoiignore` gates it on
+`stat "/usr/sbin/pct"` instead. Prefer a capability probe over a class check
+when the thing depends on software being installed rather than on what kind of
+machine it is.
+
 ## Shell layout
 
 Precedence, lowest to highest — each layer may override the one before it:
