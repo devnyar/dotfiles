@@ -3,7 +3,7 @@ export PATH=$HOME/.opencode/bin:$HOME/.local/bin:$PATH
 
 alias reload="source ~/.zshrc"
 
-alias edit-alias="chezmoi edit ~/.oh-my-zsh/custom/aliases.zsh"
+alias edit-alias="chezmoi edit ~/.oh-my-zsh/custom/aliases.zsh && source ~/.zshrc"
 
 # android debug bridge
 alias a="adb "
@@ -16,6 +16,7 @@ alias rd="rkut ld"
 
 # general
 alias tree="tree -h"
+alias cz="chezmoi edit "
 
 # rlos rom
 alias rlos-rom="cd ~/rlos-workspace/rlos-rom/"

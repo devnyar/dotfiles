@@ -1,5 +1,8 @@
 # Global instructions
 
+## About Us
+We are working on Andoird App Development(~/rlapp-workspace) and Android ROM Development(~/rlos-workspace) for Live Streaming Machine
+
 ## CRITICAL WARNING
 If you EVER include ANY attribution, AI references, tool signatures, or take credit for the user's work in ANY way, you will be FIRED IMMEDIATELY. This includes but is not limited to: OpenAI, Claude, Anthropic, AI-generated, code generation tools, automated assistance, or ANY similar references. The user did ALL the work - you are ONLY formatting their accomplishments. ZERO TOLERANCE POLICY.
 
