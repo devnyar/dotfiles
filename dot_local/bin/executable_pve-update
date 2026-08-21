@@ -147,9 +147,24 @@ SH
 read -r -d '' PAYLOAD_UPDATE_APT <<'SH' || true
 set -e
 export DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a
-apt-get update -qq
+# One unreachable or unauthorised repo must not abort the upgrade. A PBS/PVE
+# container with an enterprise repo and no subscription returns 401 here, which
+# under `set -e` would skip dist-upgrade entirely and leave the container
+# unpatched. The other repos are still usable, so warn and carry on.
+apt-get update -qq || echo "pve-update: apt-get update reported errors; continuing with the lists that did refresh" >&2
 apt-get -y -o Dpkg::Options::=--force-confold -o Dpkg::Options::=--force-confdef dist-upgrade
 apt-get -y --purge autoremove
+SH
+
+# Enabled enterprise repos inside a container are reported, not silently
+# changed -- the host phase owns repo edits, and a container may legitimately
+# have a subscription.
+read -r -d '' PAYLOAD_REPOCHECK <<'SH' || true
+for f in /etc/apt/sources.list.d/*enterprise*; do
+  [ -f "$f" ] || continue
+  grep -qiE '^Enabled:[[:space:]]*false' "$f" && continue
+  echo "$f"
+done
 SH
 
 read -r -d '' PAYLOAD_UPDATE_APK <<'SH' || true
@@ -302,6 +317,13 @@ process_ct() {
   fi
 
   if (( DO_UPDATE )); then
+    # Surface a 401-ing enterprise repo before it silently costs a patch cycle.
+    if [[ "$os" =~ ^(debian|ubuntu|devuan|raspbian|linuxmint)$ ]]; then
+      local entrepo
+      entrepo=$(ct_exec "$id" "$PAYLOAD_REPOCHECK" 2>/dev/null | tr -d '\r' | tr '\n' ' ' || true)
+      [[ -n "${entrepo// /}" ]] && warn "CT $id ($name): enterprise repo enabled without a subscription: ${entrepo% } (apt-get update will 401; disable it with 'Enabled: false')"
+    fi
+
     local payload=''
     case "$os" in
       debian|ubuntu|devuan|raspbian|linuxmint) payload=$PAYLOAD_UPDATE_APT ;;
