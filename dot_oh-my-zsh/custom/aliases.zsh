@@ -2,7 +2,7 @@
 
 alias reload="source ~/.zshrc"
 
-alias edit-alias="chezmoi edit ~/.oh-my-zsh/custom/aliases.zsh && source ~/.zshrc"
+alias edit-alias="chezmoi edit --apply ~/.oh-my-zsh/custom/aliases.zsh && source ~/.zshrc"
 
 # android debug bridge
 alias a="adb "
@@ -15,7 +15,7 @@ alias rd="rkut ld"
 
 # general
 alias tree="tree -h"
-alias cz="chezmoi edit "
+alias cze="chezmoi edit --apply "
 
 # rlos rom
 alias rlos-rom="cd ~/rlos-workspace/rlos-rom/"
@@ -25,7 +25,6 @@ alias rlapp-platform="cd ~/rlapp-workspace/rlapp-platform/"
 alias rp="cd ~/rlapp-workspace/rlapp-platform/"
 alias bota="cd ~/rlos-workspace/ota/"
 alias ota="cd /media/wd-4tb-1/rlos-workspace/ota/"
-alias mota="mv ~/rlos-workspace/ota/* /media/wd-4tb-1/rlos-workspace/ota"
 alias dsd="cd /media/wd-4tb-1/rlapp-workspace/device-sample-data"
 
 # tailscale
