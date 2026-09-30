@@ -39,8 +39,9 @@ o.window("^(org\\.banyar\\.startup-term2)$", { workspace = "2 silent" })
 o.window("^(org\\.banyar\\.startup-term6)$", { workspace = "6 silent" })
 
 -- Special-workspace apps.
-o.window("^(chrome-discord\\.com__channels_@me-Default)$", { workspace = "special:rom silent" })
+o.window("^(chrome-discord\\.com__channels_@me-Default)$", { workspace = "special:discord silent" })
 o.window("^(chrome-ophjlpahpchlmihnnnihgmmeilfjmjjc__index\\.html-Default)$", { workspace = "special:communication silent" })
+o.window("^(Spotify)$", { workspace = "special:spotify silent" })
 
 -- Workspace to monitor assignments.
 for _, ws in ipairs({ 1, 2, 3, 4, 5, 7, 8 }) do
@@ -71,3 +72,14 @@ o.window("^(openlogi-action-ring)$", {
   no_anim = true,
   tag = "-default-opacity",
 })
+
+-- Capture output directories and filename prefixes.
+-- Screenshots go to ~/Pictures/Screenshots as ss_<timestamp>.png; recordings to
+-- ~/Videos/Screenrecordings as sr_<timestamp>.mp4. The prefix vars need the patch in
+-- ~/.local/share/omarchy-patches/capture-filename-prefix.sh (upstream hardcodes
+-- the prefix; the directory vars are stock).
+local home = os.getenv("HOME")
+hl.env("OMARCHY_SCREENSHOT_DIR", home .. "/Pictures/Screenshots")
+hl.env("OMARCHY_SCREENSHOT_PREFIX", "ss_")
+hl.env("OMARCHY_SCREENRECORD_DIR", home .. "/Videos/Screenrecordings")
+hl.env("OMARCHY_SCREENRECORD_PREFIX", "sr_")

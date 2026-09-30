@@ -18,14 +18,12 @@ alias tree="tree -h"
 alias cze="chezmoi edit --apply "
 
 # rlos rom
-alias rlos-rom="cd ~/rlos-workspace/rlos-rom/"
+alias rlos="cd ~/rlos-workspace/"
 alias rr="cd ~/rlos-workspace/rlos-rom/"
-alias re="cd ~/rlos-workspace/essential-rlos-rom-repo/"
 alias rlapp-platform="cd ~/rlapp-workspace/rlapp-platform/"
 alias rp="cd ~/rlapp-workspace/rlapp-platform/"
 alias bota="cd ~/rlos-workspace/ota/"
 alias ota="cd /media/wd-4tb-1/rlos-workspace/ota/"
-alias dsd="cd /media/wd-4tb-1/rlapp-workspace/device-sample-data"
 
 # tailscale
 # thome = profile 3d7a (banyarnaing123@gmail.com), twork = profile fa4f (reezlive.com)

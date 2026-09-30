@@ -1,0 +1,55 @@
+#!/bin/bash
+
+# Absolute brightness control per monitor, dispatched by invocation name:
+#
+#   devnyar-first-monitor  20   -> DP-1 (LG ultrawide)  via DDC/CI backlight
+#   devnyar-second-monitor 20   -> DP-2 (AOC portrait)  via DDC/CI backlight
+#   devnyar-third-monitor  20   -> DP-3 (TPV strip)     via wl-gammarelay-rs
+#
+# Or explicitly: devnyar-monitor-brightness <connector> <percent>
+#
+# DDC monitors go through stock omarchy-brightness-display-ddc (per-monitor
+# i2c bus caching included). DP-3 has no DDC/CI, so it is dimmed in software
+# (gamma). That only scales pixel values, so it's floored at GAMMA_FLOOR% —
+# same rationale as ~/.config/hypr/scripts/brightness-ddc.sh.
+
+GAMMA_OUTPUTS="DP-3"
+GAMMA_FLOOR=20
+
+case "$(basename "$0")" in
+  devnyar-first-monitor)  conn=DP-1 ;;
+  devnyar-second-monitor) conn=DP-2 ;;
+  devnyar-third-monitor)  conn=DP-3 ;;
+  *) conn="$1"; shift ;;
+esac
+
+pct="${1%\%}"
+if [[ -z $conn || ! $pct =~ ^[0-9]+$ ]] || (( pct < 1 || pct > 100 )); then
+  echo "usage: $(basename "$0") <1-100>" >&2
+  exit 1
+fi
+
+is_gamma_output() {
+  local out
+  for out in $GAMMA_OUTPUTS; do
+    [[ "$conn" == "$out" ]] && return 0
+  done
+  return 1
+}
+
+if ! is_gamma_output; then
+  if ! omarchy-brightness-display-ddc "$conn" "${pct}%" >/dev/null; then
+    echo "$conn: DDC write failed (monitor off or not connected?)" >&2
+    exit 1
+  fi
+  echo "$conn: backlight ${pct}%"
+else
+  (( pct < GAMMA_FLOOR )) && pct=$GAMMA_FLOOR
+  frac="$(awk -v p="$pct" 'BEGIN{printf "%.2f", p/100}')"
+  obj="/outputs/${conn//-/_}"
+  if ! busctl --user set-property rs.wl-gammarelay "$obj" rs.wl.gammarelay Brightness d "$frac" 2>/dev/null; then
+    echo "$conn: wl-gammarelay-rs not running (start it, or relogin)" >&2
+    exit 1
+  fi
+  echo "$conn: gamma ${pct}%"
+fi

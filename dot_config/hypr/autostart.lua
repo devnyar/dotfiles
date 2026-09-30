@@ -28,12 +28,12 @@ o.exec_on_start(home .. "/.local/bin/openlogi-ring-unstick")
 -- Pre-build the DDC brightness bus cache so the first brightness keypress is instant.
 o.exec_on_start(scripts .. "/brightness-ddc.sh warmup")
 
--- Startup terminals — disable gtk-single-instance so each gets its own process
--- and --class sticks, letting the window rules in hyprland.lua route them to
--- ws 1, 2, and 6.
-o.launch_on_start("ghostty --gtk-single-instance=false --class=org.banyar.startup-term1")
-o.launch_on_start("ghostty --gtk-single-instance=false --class=org.banyar.startup-term2")
-o.launch_on_start("ghostty --gtk-single-instance=false --class=org.banyar.startup-term6")
+-- Startup terminals — foot is the default terminal (xdg-terminal-exec), so
+-- these share ~/.config/foot/foot.ini with every hand-opened window. --app-id
+-- gives each its own class for the window rules in hyprland.lua (ws 1, 2, 6).
+o.launch_on_start("foot --app-id=org.banyar.startup-term1")
+o.launch_on_start("foot --app-id=org.banyar.startup-term2")
+o.launch_on_start("foot --app-id=org.banyar.startup-term6")
 
 -- Special-workspace apps (window rules in hyprland.lua send them silently to
 -- special:rom / special:communication).

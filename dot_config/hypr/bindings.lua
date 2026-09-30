@@ -1,6 +1,6 @@
 -- Ported from pre-4.0 bindings.conf. Bindings whose Omarchy 4 default is
 -- already identical (terminal, tmux, browser, editor, webapps, lazydocker,
--- Google Messages/Photos, X, ChatGPT, Grok, Calendar, Email, YouTube) are not
+-- Google Messages/Photos, X, Grok, Calendar, Email, YouTube) are not
 -- repeated here — only overrides and additions.
 
 local home = os.getenv("HOME")
@@ -28,22 +28,28 @@ hl.unbind("SUPER + ALT + S") -- was: move window to scratchpad
 o.bind("SUPER + U", "Toggle scratchpad", hl.dsp.workspace.toggle_special("scratchpad"))
 o.bind("SUPER + SHIFT + U", "Move to scratchpad", hl.dsp.window.move({ workspace = "special:scratchpad", follow = false }))
 
-o.bind("SUPER + R", "Toggle ROM", hl.dsp.workspace.toggle_special("rom"))
-o.bind("SUPER + SHIFT + R", "Move to ROM", hl.dsp.window.move({ workspace = "special:rom", follow = false }))
+o.bind("SUPER + D", "Toggle Discord", hl.dsp.workspace.toggle_special("discord"))
+o.bind("SUPER + SHIFT + D", "Move to Discord", hl.dsp.window.move({ workspace = "special:discord", follow = false }))
+
+-- Spotify on its own special workspace so SUPER+R shows and hides it
+-- (the omarchy default is launch-or-focus only, with no way to hide it again).
+o.bind("SUPER + R", "Toggle Spotify", hl.dsp.workspace.toggle_special("spotify"))
+hl.workspace_rule({ workspace = "special:spotify", on_created_empty = "uwsm-app -- spotify" })
 
 o.bind("SUPER + B", "Toggle communication", hl.dsp.workspace.toggle_special("communication"))
 o.bind("SUPER + SHIFT + G", "Move to communication", hl.dsp.window.move({ workspace = "special:communication", follow = false }))
 
-o.bind("SUPER + M", "Toggle music", hl.dsp.workspace.toggle_special("music"))
-hl.workspace_rule({ workspace = "special:music", on_created_empty = "uwsm-app -- xdg-terminal-exec cliamp" })
+hl.unbind("SUPER + SHIFT + A") -- was: ChatGPT webapp
+o.bind("SUPER + A", "Toggle game", hl.dsp.workspace.toggle_special("game"))
+o.bind("SUPER + SHIFT + A", "Move to game", hl.dsp.window.move({ workspace = "special:game", follow = false }))
 
 -- SUPER+W: close window — but confirm first when it's the Zen browser (it
 -- otherwise closes instantly with no warning, unlike Ctrl+Q).
 hl.unbind("SUPER + W")
 o.bind("SUPER + W", "Close window", scripts .. "/close-window.sh")
 
--- SUPER+E: file manager, SUPER+Q: system menu.
-o.bind("SUPER + E", "File manager", { launch = "nautilus --new-window" })
+-- SUPER+E: file manager (Strata), SUPER+Q: system menu.
+o.bind("SUPER + E", "File manager", { launch = "strata" })
 o.bind("SUPER + Q", "Omarchy menu", "omarchy-menu toggle")
 
 -- App launcher on SUPER+S (freed from scratchpad above); SUPER+SPACE stays free.

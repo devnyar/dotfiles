@@ -63,5 +63,12 @@ alias czd='chezmoi diff'
 alias cza='chezmoi apply'
 alias czu='chezmoi update'
 
+# Clipboard: ~/.local/bin/clip — `clip file.txt`, `cmd | clip`, `clip -o` to paste.
+# Not aliasing `paste`; that's a real coreutils tool.
+alias copy='clip'
+alias cpaste='clip -o'
+command -v pbcopy  >/dev/null 2>&1 || alias pbcopy='clip'
+command -v pbpaste >/dev/null 2>&1 || alias pbpaste='clip -o'
+
 # --- functions --------------------------------------------------------------
 mkcd() { mkdir -p "$1" && cd "$1"; }

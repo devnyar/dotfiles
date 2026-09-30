@@ -1,0 +1,159 @@
+#!/usr/bin/env bash
+#
+# clip — copy to / paste from the system clipboard, portably.
+#
+#   clip file.txt            copy the file's contents
+#   clip a.txt b.txt         copy both, concatenated
+#   cat file.txt | clip      copy stdin
+#   clip -o                  print the clipboard to stdout  (paste)
+#   clip -o > out.txt        dump the clipboard to a file
+#   clip -n file.txt         copy, stripping trailing newline(s)
+#   clip -q file.txt         quiet: no "copied N bytes" notice
+#
+# Backends, tried in order (override with CLIP_BACKEND=wayland|x11|macos|osc52|termux):
+#   macOS pbcopy → Wayland wl-copy → X11 xclip/xsel → Termux → OSC 52 escape
+# The OSC 52 fallback means this also works over SSH in a terminal that
+# supports it (Ghostty, kitty, foot, Alacritty, WezTerm, iTerm2, tmux).
+
+set -euo pipefail
+
+prog=${0##*/}
+
+usage() {
+    cat >&2 <<USAGE
+usage: $prog [-o] [-n] [-q] [FILE...]
+
+  (no FILE)   copy stdin
+  FILE...     copy the contents of the given files
+  -o, --out   paste: print the clipboard to stdout
+  -n          strip trailing newline(s) before copying
+  -q          quiet (suppress the byte count on stderr)
+  -h          this help
+USAGE
+}
+
+# --- pick a backend ---------------------------------------------------------
+detect_backend() {
+    if [ -n "${CLIP_BACKEND:-}" ]; then
+        printf '%s\n' "$CLIP_BACKEND"
+        return
+    fi
+    if command -v pbcopy >/dev/null 2>&1; then
+        printf 'macos\n'
+    elif [ -n "${WAYLAND_DISPLAY:-}" ] && command -v wl-copy >/dev/null 2>&1; then
+        printf 'wayland\n'
+    elif [ -n "${DISPLAY:-}" ] && command -v xclip >/dev/null 2>&1; then
+        printf 'x11-xclip\n'
+    elif [ -n "${DISPLAY:-}" ] && command -v xsel >/dev/null 2>&1; then
+        printf 'x11-xsel\n'
+    elif command -v termux-clipboard-set >/dev/null 2>&1; then
+        printf 'termux\n'
+    elif command -v wl-copy >/dev/null 2>&1; then
+        printf 'wayland\n'
+    else
+        printf 'osc52\n'
+    fi
+}
+
+# OSC 52: base64 the payload and hand it to the terminal emulator. Needs a tty;
+# tmux and screen require their own passthrough wrapping.
+osc52_copy() {
+    local b64 tty
+    b64=$(base64 | tr -d '\n')
+    tty=/dev/tty
+    [ -w "$tty" ] || { echo "$prog: OSC 52 needs a terminal (no writable /dev/tty)" >&2; return 1; }
+    if [ -n "${TMUX:-}" ]; then
+        printf '\033Ptmux;\033\033]52;c;%s\a\033\\' "$b64" >"$tty"
+    elif [ "${TERM:-}" != "${TERM#screen}" ]; then
+        printf '\033P\033]52;c;%s\a\033\\' "$b64" >"$tty"
+    else
+        printf '\033]52;c;%s\a' "$b64" >"$tty"
+    fi
+}
+
+do_copy() {  # stdin -> clipboard
+    case "$1" in
+        macos)     pbcopy ;;
+        wayland)   wl-copy ;;
+        x11-xclip) xclip -selection clipboard ;;
+        x11-xsel)  xsel --clipboard --input ;;
+        termux)    termux-clipboard-set ;;
+        osc52)     osc52_copy ;;
+        *) echo "$prog: unknown backend '$1'" >&2; return 1 ;;
+    esac
+}
+
+do_paste() {  # clipboard -> stdout
+    case "$1" in
+        macos)     pbpaste ;;
+        wayland)   wl-paste --no-newline ;;
+        x11-xclip) xclip -selection clipboard -o ;;
+        x11-xsel)  xsel --clipboard --output ;;
+        termux)    termux-clipboard-get ;;
+        osc52)     echo "$prog: pasting is not possible over OSC 52" >&2; return 1 ;;
+        *) echo "$prog: unknown backend '$1'" >&2; return 1 ;;
+    esac
+}
+
+human() {  # bytes -> "1.2K"
+    local b=$1
+    if   [ "$b" -lt 1024 ]        ; then printf '%s bytes' "$b"
+    elif [ "$b" -lt 1048576 ]     ; then awk -v b="$b" 'BEGIN{printf "%.1fK", b/1024}'
+    else                                 awk -v b="$b" 'BEGIN{printf "%.1fM", b/1048576}'
+    fi
+}
+
+# --- args -------------------------------------------------------------------
+paste_mode=0 strip=0 quiet=0
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -o|--out|--paste) paste_mode=1; shift ;;
+        -n|--strip)       strip=1; shift ;;
+        -q|--quiet)       quiet=1; shift ;;
+        -h|--help)        usage; exit 0 ;;
+        --)               shift; break ;;
+        -*)               echo "$prog: unknown option '$1'" >&2; usage; exit 2 ;;
+        *)                break ;;
+    esac
+done
+
+backend=$(detect_backend)
+
+if [ "$paste_mode" -eq 1 ]; then
+    do_paste "$backend"
+    exit
+fi
+
+# No files and stdin is a terminal: nothing to copy — most likely a typo.
+if [ $# -eq 0 ] && [ -t 0 ]; then
+    echo "$prog: no input (give a FILE, or pipe something in; -o to paste)" >&2
+    usage
+    exit 2
+fi
+
+for f; do
+    [ -r "$f" ] || { echo "$prog: cannot read '$f'" >&2; exit 1; }
+    [ -d "$f" ] && { echo "$prog: '$f' is a directory" >&2; exit 1; }
+done
+
+tmp=$(mktemp "${TMPDIR:-/tmp}/clip.XXXXXX")
+trap 'rm -f "$tmp"' EXIT INT TERM
+
+if [ $# -eq 0 ]; then
+    cat >"$tmp"
+else
+    cat -- "$@" >"$tmp"
+fi
+
+if [ "$strip" -eq 1 ]; then
+    printf '%s' "$(cat "$tmp")" >"$tmp.s" && mv "$tmp.s" "$tmp"
+fi
+
+do_copy "$backend" <"$tmp"
+
+if [ "$quiet" -eq 0 ] && [ -t 2 ]; then
+    bytes=$(wc -c <"$tmp" | tr -d ' ')
+    lines=$(wc -l <"$tmp" | tr -d ' ')
+    src=$([ $# -eq 0 ] && echo "stdin" || echo "$*")
+    printf 'copied %s (%s lines) from %s\n' "$(human "$bytes")" "$lines" "$src" >&2
+fi
