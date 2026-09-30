@@ -1,0 +1,31 @@
+#!/bin/sh
+# Omarchy's universal copy/paste/cut for an OpenLogi Actions Ring slot.
+#
+# Mirrors the SUPER+C/V/X binds in /usr/share/omarchy/default/hypr/bindings/clipboard.lua:
+# Ctrl+C/V/X in apps, Ctrl+Insert/Shift+Insert in terminals, sent through
+# Hyprland's send_key_state. wtype can't trigger those binds itself: its
+# private keymap makes Hyprland resolve SUPER+V as SUPER+Escape (System menu).
+#
+# Usage: openlogi-ring-clipboard copy|paste|cut
+
+# Trace each run, to match a stuck mouse/key state to the slot that caused it.
+echo "$(date '+%F %T') $(basename "$0") $*" >> "${XDG_STATE_HOME:-$HOME/.local/state}/openlogi-ring.log"
+
+# Let the ring close so focus is back on the window it was opened over.
+sleep 0.3
+
+if hyprctl activewindow -j | jq -e '.tags // [] | map(sub("\\*$"; "")) | index("terminal")' >/dev/null; then
+  terminal=1
+fi
+
+case $1 in
+  copy)  mods=CTRL key=${terminal:+Insert}; key=${key:-C} ;;
+  paste) if [ -n "$terminal" ]; then mods=SHIFT key=Insert; else mods=CTRL key=V; fi ;;
+  cut)   mods=CTRL key=X ;;
+  *) echo "usage: openlogi-ring-clipboard copy|paste|cut" >&2; exit 2 ;;
+esac
+
+# Separate down/up, as Omarchy does, so the synthetic key never sticks.
+hyprctl dispatch "hl.dsp.send_key_state({ mods = \"$mods\", key = \"$key\", state = \"down\" })" >/dev/null
+sleep 0.05
+hyprctl dispatch "hl.dsp.send_key_state({ mods = \"$mods\", key = \"$key\", state = \"up\" })" >/dev/null

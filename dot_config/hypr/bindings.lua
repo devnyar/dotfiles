@@ -59,15 +59,6 @@ for workspace, code in ipairs(numpad_codes) do
   o.bind("SUPER + SHIFT + " .. key, "Move window to workspace " .. workspace, hl.dsp.window.move({ workspace = tostring(workspace) }))
 end
 
--- MX Master 3s gesture button targets (triggered by logid / logiops) ----------
-hl.unbind("SUPER + CTRL + LEFT")   -- was: grouped window focus left
-hl.unbind("SUPER + CTRL + RIGHT")  -- was: grouped window focus right
-hl.unbind("SUPER + CTRL + RETURN") -- was: Herdr
-o.bind("SUPER + CTRL + RIGHT", "Next workspace (mouse gesture)", hl.dsp.focus({ workspace = "e+1" }))
-o.bind("SUPER + CTRL + LEFT", "Previous workspace (mouse gesture)", hl.dsp.focus({ workspace = "e-1" }))
-o.bind("SUPER + CTRL + UP", "Fullscreen (mouse gesture)", hl.dsp.window.fullscreen({ mode = "fullscreen" }))
-o.bind("SUPER + CTRL + RETURN", "Omarchy menu (mouse click)", "omarchy-menu toggle")
-
 -- External monitor brightness (DDC/CI) ----------------------------------------
 -- This desktop has no laptop backlight, so omarchy's default XF86MonBrightness
 -- handler is a no-op (OSD shows but nothing changes). Unbind the defaults and

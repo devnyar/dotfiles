@@ -1,0 +1,27 @@
+#!/bin/sh
+# Send a key chord to an app from an OpenLogi Actions Ring slot.
+#
+# The ring window holds focus while it is open, so a plain CustomShortcut slot
+# types into the ring instead of the app. Wait for the ring to close, refocus
+# the target app, then type the chord with wtype.
+#
+# Usage: openlogi-ring-send <window-class|-> <wtype args...>
+#   openlogi-ring-send jetbrains-studio -M shift -k F10 -m shift   # Run 'app'
+#
+# A class of "-" skips the refocus and types into whichever window regains
+# focus when the ring closes. Don't use this for Hyprland binds (Super chords):
+# wtype's private keymap makes Hyprland misread the key. For copy/paste/cut use
+# openlogi-ring-clipboard.
+
+# Trace each run, to match a stuck mouse/key state to the slot that caused it.
+echo "$(date '+%F %T') $(basename "$0") $*" >> "${XDG_STATE_HOME:-$HOME/.local/state}/openlogi-ring.log"
+
+class=$1
+shift
+
+sleep 0.3
+if [ "$class" != "-" ]; then
+  hyprctl dispatch "hl.dsp.focus({ window = \"class:^($class)\$\" })" >/dev/null
+  sleep 0.05
+fi
+exec wtype "$@"

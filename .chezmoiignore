@@ -1,6 +1,5 @@
 {{- $class := includeTemplate "machine-class" . -}}
 CLAUDE.md
-logid
 
 {{ if eq $class "server" -}}
 # ===========================================================================

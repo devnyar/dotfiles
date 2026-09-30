@@ -21,6 +21,10 @@ o.exec_on_start("wl-gammarelay-rs")
 -- uncommenting if the old unlock/DPMS drift (flipped portrait strip) returns.
 -- o.exec_on_start(scripts .. "/monitor-watcher.sh")
 
+-- Clear the phantom mouse-button press OpenLogi's Actions Ring can leave behind
+-- (clicks and text selection stop working). See the script header.
+o.exec_on_start(home .. "/.local/bin/openlogi-ring-unstick")
+
 -- Pre-build the DDC brightness bus cache so the first brightness keypress is instant.
 o.exec_on_start(scripts .. "/brightness-ddc.sh warmup")
 

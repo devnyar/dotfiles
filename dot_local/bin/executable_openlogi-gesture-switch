@@ -1,0 +1,23 @@
+#!/bin/sh
+# Gesture-button swipe left/right for OpenLogi: switch Zen workspaces when Zen
+# is focused, otherwise switch tabs (what OpenLogi's PrevTab/NextTab send).
+#
+# OpenLogi can't set per-app gesture directions (per_app_bindings holds one
+# action per button), so the global Left/Right swipes run this instead.
+# Keys go through Hyprland's send_key_state to the focused window.
+#
+# Usage: openlogi-gesture-switch prev|next
+
+class=$(hyprctl activewindow -j | jq -r '.class // ""')
+
+case "$class:$1" in
+  zen:prev) mods="CTRL ALT" key=Left ;;
+  zen:next) mods="CTRL ALT" key=Right ;;
+  *:prev)   mods="CTRL SHIFT" key=Tab ;;
+  *:next)   mods="CTRL" key=Tab ;;
+  *) echo "usage: openlogi-gesture-switch prev|next" >&2; exit 2 ;;
+esac
+
+hyprctl dispatch "hl.dsp.send_key_state({ mods = \"$mods\", key = \"$key\", state = \"down\" })" >/dev/null
+sleep 0.05
+hyprctl dispatch "hl.dsp.send_key_state({ mods = \"$mods\", key = \"$key\", state = \"up\" })" >/dev/null

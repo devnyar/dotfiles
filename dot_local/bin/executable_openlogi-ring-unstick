@@ -1,0 +1,36 @@
+#!/bin/sh
+# Clear the phantom mouse-button press OpenLogi's Actions Ring can leave behind.
+#
+# OpenLogi grabs the physical MX Master and replays it through its virtual
+# mouse. Around a ring session the grab lets go and retakes the device, so
+# Hyprland can see a physical button press whose release then goes to the
+# virtual mouse. Hyprland keeps that button "held", and clicks and text
+# selection stop working everywhere. Disabling and re-enabling the physical
+# device drops the held state. Do that each time a ring window closes.
+#
+# Started from ~/.config/hypr/autostart.lua. Only one copy runs.
+
+exec 9>"${XDG_RUNTIME_DIR:-/tmp}/openlogi-ring-unstick.lock"
+flock -n 9 || exit 0
+
+socket="$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/.socket2.sock"
+
+unstick() {
+  sleep 0.3
+  hyprctl devices -j | jq -r '.mice[].name | select(test("^logitech-"))' | while read -r mouse; do
+    hyprctl eval "hl.device({ name = \"$mouse\", enabled = false })" >/dev/null
+    hyprctl eval "hl.device({ name = \"$mouse\", enabled = true })" >/dev/null
+    echo "$(date '+%F %T') openlogi-ring-unstick reset $mouse" >> "${XDG_STATE_HOME:-$HOME/.local/state}/openlogi-ring.log"
+  done
+}
+
+ring=""
+socat -U - UNIX-CONNECT:"$socket" | while IFS= read -r event; do
+  case $event in
+    openwindow\>\>*,openlogi-action-ring,*)
+      ring="$ring ${event#openwindow>>}"; ring="${ring%%,*}" ;;
+    closewindow\>\>*)
+      addr=${event#closewindow>>}
+      case " $ring " in *" $addr "*) ring=""; unstick & ;; esac ;;
+  esac
+done

@@ -57,3 +57,17 @@ o.window("(org.omarchy.terminal)", { size = { 1200, 800 } })
 
 -- Small centered confirm dialog spawned by scripts/close-window.sh (SUPER+W on Zen).
 o.window("^(org\\.banyar\\.close-confirm)$", { float = true, center = true, size = { 460, 160 }, stay_focused = true })
+
+-- OpenLogi Actions Ring: a transparent popup, not a tiled app. Float it centred on
+-- the cursor and pin it so it shows on whichever workspace is active. It needs focus
+-- to take clicks, so app shortcuts go through ~/.local/bin/openlogi-ring-send.
+o.window("^(openlogi-action-ring)$", {
+  float = true,
+  pin = true,
+  move = { "(cursor_x-window_w*0.5)", "(cursor_y-window_h*0.5)" },
+  border_size = 0,
+  no_shadow = true,
+  no_blur = true,
+  no_anim = true,
+  tag = "-default-opacity",
+})

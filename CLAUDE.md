@@ -8,7 +8,6 @@ This repo (source: `~/.local/share/chezmoi/`) tracks user configs for three clas
 - `chezmoi apply` renders the source into place at `$HOME`. It's idempotent — safe to run any time.
 - `chezmoi diff` previews pending changes before applying.
 - Source naming maps to target paths: `dot_config/hypr/bindings.conf` → `~/.config/hypr/bindings.conf`, `dot_zshrc` → `~/.zshrc`, `executable_foo.sh` → `foo.sh` deployed with the executable bit set, etc. See `chezmoi help` / the chezmoi docs for the full attribute list.
-- `logid/logid.cfg` is tracked here for reference only (see below) — it is excluded from `chezmoi apply` via `.chezmoiignore` since it targets a root-owned system path.
 
 ## Machine classes
 
@@ -120,14 +119,6 @@ On a fresh machine, recreate `~/.config/chezmoi/chezmoi.toml` **before** running
 ## Recovery after an accidental omarchy reset
 
 `omarchy-refresh-*` may overwrite a managed file with an Omarchy default. To restore: `chezmoi apply` — chezmoi detects the drift and re-renders the tracked version (use `chezmoi diff` first to see what changed).
-
-## The `logid.cfg` system file
-
-`logid` (MX Master gestures) reads `/etc/logid.cfg` as root, so chezmoi (unprivileged) can't manage it directly. It's tracked here for reference/history only. Deploy manually after editing:
-
-```
-sudo ln -sf ~/.local/share/chezmoi/logid/logid.cfg /etc/logid.cfg && sudo systemctl restart logid
-```
 
 ## Out of scope
 
