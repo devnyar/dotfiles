@@ -40,7 +40,7 @@ compute_expected() {
     [DP-1]="0 $y"
     [DP-2]="$w 0"
     [DP-3]="$((w + 1080 - 1920)) 1920"
-    [tablet]="-1920 $y"
+    [vnc]="-1920 $y"
   )
 }
 
@@ -96,7 +96,7 @@ listen_events &
 LISTENER_PID=$!
 trap 'kill "$LISTENER_PID" 2>/dev/null' EXIT
 
-log "started; tracking ports: DP-1 DP-2 DP-3 tablet (positions derived from DP-1 scale)"
+log "started; tracking ports: DP-1 DP-2 DP-3 vnc (positions derived from DP-1 scale)"
 
 # Poll loop.
 while sleep "$POLL_INTERVAL"; do

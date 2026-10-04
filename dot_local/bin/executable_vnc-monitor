@@ -1,0 +1,300 @@
+#!/usr/bin/env bash
+# Add a virtual monitor to Hyprland and serve it over VNC with wayvnc, so any
+# device with a VNC client (tablet, laptop, phone) can act as an extra screen.
+#
+# Each instance is a headless output with a fixed name (default "vnc") instead
+# of an auto-numbered HEADLESS-N, so:
+#   - a matching entry in ~/.config/hypr/monitors.lua gives it boot defaults,
+#   - monitors.lua re-applies its live geometry on reload (it checks the state
+#     dir below to tell our outputs from others).
+#
+# wayvnc reads ~/.config/wayvnc/config for address/port/auth. --port writes a
+# per-instance copy of that config, since wayvnc has no port flag.
+#
+# Run `vnc-monitor --help` for usage.
+
+set -uo pipefail
+
+NAME="vnc"
+MODE=""
+POSITION=""
+SCALE=""
+PORT=""
+ALLOW_RESIZE=0 # wayvnc resizes the output to fit the client unless disabled
+USE_GPU=0      # GPU encoding needs working DMA-BUF capture
+
+VNC_CONF="$HOME/.config/wayvnc/config"
+STATE_DIR="${XDG_RUNTIME_DIR:-/tmp}/vnc-monitor" # monitors.lua reads this too
+
+usage() {
+  cat <<EOF
+Usage: ${0##*/} [toggle|start|stop|status|list] [options]
+
+Add a virtual Hyprland monitor and share it over VNC.
+
+Commands:
+  toggle        start if stopped, stop if running (default)
+  start         create the output and start wayvnc
+  stop          stop wayvnc and remove the output
+  status        show the state of one instance
+  list          show all running instances
+
+Options:
+  -n, --name NAME       output name, one per instance (default: vnc)
+  -m, --mode MODE       WxH@Hz, e.g. 2560x1600@60
+  -p, --position POS    XxY in layout coordinates, or auto-left, auto-right,
+                        auto-up, auto-down
+  -s, --scale SCALE     e.g. 1, 1.5, 2
+  -P, --port PORT       VNC port (default: from wayvnc config, else 5900)
+      --resize          let the VNC client resize the output to its screen
+      --gpu             GPU-accelerated encoding
+  -h, --help            show this help
+
+With no --mode/--position/--scale, the output's entry in monitors.lua is used
+(the "vnc" output has one); otherwise Hyprland's fallback rule.
+
+Examples:
+  ${0##*/}                                   # toggle the default screen
+  ${0##*/} start -m 2560x1600@60 -p auto-left -s 2
+  ${0##*/} start -n phone -m 1080x2400@60 -p auto-right -P 5901
+  ${0##*/} stop -n phone
+EOF
+}
+
+die() {
+  notify "VNC monitor failed" "$*"
+  echo "$*" >&2
+  exit 1
+}
+
+log() { printf '%s %s\n' "$(date -Iseconds)" "$*" >>"${LOG:-/dev/null}"; }
+
+notify() {
+  local title="$1" body="${2:-}"
+  log "$title${body:+ — $body}"
+  command -v notify-send >/dev/null && notify-send -a "VNC monitor" "$title" "$body"
+}
+
+# Read a key from the wayvnc config, falling back to wayvnc's own default.
+vnc_setting() {
+  local key="$1" fallback="$2" value=""
+  [[ -f "$VNC_CONF" ]] &&
+    value="$(grep -E "^\s*$key\s*=" "$VNC_CONF" | tail -1 | cut -d= -f2- | tr -d ' ')"
+  echo "${value:-$fallback}"
+}
+
+lan_ip() {
+  local iface
+  iface="$(ip -4 route show default 2>/dev/null | awk '/default/ { print $5; exit }')"
+  [[ -n "$iface" ]] || return 1
+  ip -4 addr show "$iface" 2>/dev/null | awk '/inet / { print $2; exit }' | cut -d/ -f1
+}
+
+output_exists() {
+  hyprctl -j monitors all 2>/dev/null |
+    jq -e --arg n "$NAME" 'map(select(.name == $n)) | length > 0' >/dev/null
+}
+
+output_geometry() {
+  hyprctl -j monitors all | jq -r --arg n "$NAME" \
+    '.[] | select(.name == $n) |
+     "\(.width)x\(.height)@\(.refreshRate | floor) at \(.x)x\(.y), scale \(.scale)"'
+}
+
+server_pid() {
+  local pid
+  [[ -f "$PIDFILE" ]] || return 1
+  pid="$(<"$PIDFILE")"
+  [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null || return 1
+  echo "$pid"
+}
+
+running() { server_pid >/dev/null; }
+
+instance_port() {
+  local VNC_CONF="$VNC_CONF"
+  [[ -f "$CONF" ]] && VNC_CONF="$CONF"
+  vnc_setting port 5900
+}
+
+# Apply --mode/--position/--scale on top of the output's current geometry.
+apply_geometry() {
+  [[ -n "$MODE$POSITION$SCALE" ]] || return 0
+  local cur_mode cur_pos cur_scale
+  read -r cur_mode cur_pos cur_scale < <(
+    hyprctl -j monitors all | jq -r --arg n "$NAME" \
+      '.[] | select(.name == $n) |
+       "\(.width)x\(.height)@\(.refreshRate | floor) \(.x)x\(.y) \(.scale)"'
+  )
+  hyprctl eval "hl.monitor({ output = \"$NAME\", mode = \"${MODE:-$cur_mode}\", position = \"${POSITION:-$cur_pos}\", scale = ${SCALE:-$cur_scale} })" >/dev/null ||
+    die "could not apply geometry to $NAME"
+}
+
+start() {
+  if running; then
+    apply_geometry
+    notify "VNC monitor already on" "$NAME · $(output_geometry)"
+    return 0
+  fi
+
+  command -v wayvnc >/dev/null || die "wayvnc is not installed"
+  mkdir -p "$STATE_DIR"
+
+  local conf="$VNC_CONF"
+  if [[ -n "$PORT" ]]; then
+    { grep -vE '^\s*port\s*=' "$VNC_CONF" 2>/dev/null; echo "port=$PORT"; } >"$CONF"
+    chmod 600 "$CONF"
+    conf="$CONF"
+  else
+    rm -f "$CONF"
+  fi
+
+  if ! output_exists; then
+    hyprctl output create headless "$NAME" >/dev/null ||
+      die "could not create headless output"
+    # Creation is async — wait for the compositor to register it.
+    for _ in {1..20}; do
+      output_exists && break
+      sleep 0.1
+    done
+    output_exists || die "headless output '$NAME' never appeared"
+  fi
+  apply_geometry
+
+  local args=(--config="$conf" --output="$NAME" --render-cursor
+    --socket="$STATE_DIR/$NAME.sock" --name="$NAME")
+  [[ "$ALLOW_RESIZE" == 1 ]] || args+=(--disable-resizing)
+  [[ "$USE_GPU" == 1 ]] && args+=(--gpu)
+
+  wayvnc "${args[@]}" >>"$LOG" 2>&1 &
+  local pid=$!
+  disown "$pid" 2>/dev/null
+  echo "$pid" >"$PIDFILE"
+
+  # wayvnc exits early on a bad config or a port already in use — catch that
+  # instead of reporting success and leaving a stray headless output behind.
+  sleep 0.5
+  if ! kill -0 "$pid" 2>/dev/null; then
+    rm -f "$PIDFILE" "$CONF"
+    hyprctl output remove "$NAME" >/dev/null 2>&1
+    die "wayvnc exited immediately — see $LOG"
+  fi
+
+  local host
+  host="$(lan_ip)" || host="$(vnc_setting address localhost)"
+  notify "VNC monitor on" "Connect to $host:$(instance_port)  ·  $NAME $(output_geometry)"
+}
+
+stop() {
+  local pid
+  if pid="$(server_pid)"; then
+    kill "$pid" 2>/dev/null
+    for _ in {1..20}; do
+      kill -0 "$pid" 2>/dev/null || break
+      sleep 0.1
+    done
+    kill -9 "$pid" 2>/dev/null
+  else
+    # No usable pidfile (killed by hand, or a reboot cleared the runtime dir),
+    # but a wayvnc may still be holding the output.
+    pkill -f -- "wayvnc .*--output=$NAME( |$)" 2>/dev/null
+  fi
+  rm -f "$PIDFILE" "$CONF" "$STATE_DIR/$NAME.sock"
+
+  if output_exists; then
+    # Hyprland relocates any workspaces living on the output as it goes away.
+    hyprctl output remove "$NAME" >/dev/null ||
+      die "could not remove output $NAME"
+    # Drop the runtime workspace rules monitors.lua added for this output, so
+    # its workspaces go back to their usual monitor next time they're created.
+    hyprctl reload >/dev/null
+  fi
+
+  notify "VNC monitor off" "$NAME"
+}
+
+status() {
+  local pid
+  if pid="$(server_pid)"; then
+    echo "wayvnc:  running (pid $pid), port $(instance_port)"
+  else
+    echo "wayvnc:  stopped"
+  fi
+  if output_exists; then
+    echo "output:  $NAME $(output_geometry)"
+  else
+    echo "output:  $NAME absent"
+  fi
+}
+
+list() {
+  local f found=0
+  for f in "$STATE_DIR"/*.pid; do
+    [[ -e "$f" ]] || continue
+    NAME="$(basename "$f" .pid)"
+    set_paths
+    running || continue
+    found=1
+    echo "$NAME: port $(instance_port), $(output_geometry)"
+  done
+  ((found)) || echo "no VNC monitors running"
+}
+
+set_paths() {
+  PIDFILE="$STATE_DIR/$NAME.pid"
+  CONF="$STATE_DIR/$NAME.conf"
+  LOG="$STATE_DIR/$NAME.log"
+}
+
+cmd="toggle"
+if [[ $# -gt 0 && "$1" != -* ]]; then
+  cmd="$1"
+  shift
+fi
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+  -n | --name) NAME="${2:?}"; shift 2 ;;
+  -m | --mode) MODE="${2:?}"; shift 2 ;;
+  -p | --position) POSITION="${2:?}"; shift 2 ;;
+  -s | --scale) SCALE="${2:?}"; shift 2 ;;
+  -P | --port) PORT="${2:?}"; shift 2 ;;
+  --resize) ALLOW_RESIZE=1; shift ;;
+  --gpu) USE_GPU=1; shift ;;
+  -h | --help) usage; exit 0 ;;
+  *) echo "unknown option: $1" >&2; usage >&2; exit 1 ;;
+  esac
+done
+
+# Outside the session (ssh, cron) the environment lacks Hyprland's variables —
+# borrow them from the newest running instance.
+if [[ -z "${HYPRLAND_INSTANCE_SIGNATURE:-}" || -z "${WAYLAND_DISPLAY:-}" ]]; then
+  export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+  read -r sig sock < <(
+    HYPRLAND_INSTANCE_SIGNATURE=x hyprctl -j instances 2>/dev/null |
+      jq -r 'max_by(.time) | "\(.instance) \(.wl_socket)"'
+  )
+  export HYPRLAND_INSTANCE_SIGNATURE="${HYPRLAND_INSTANCE_SIGNATURE:-$sig}"
+  export WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-$sock}"
+  STATE_DIR="$XDG_RUNTIME_DIR/vnc-monitor"
+fi
+
+[[ "$NAME" =~ ^[A-Za-z0-9_-]+$ ]] || die "invalid name '$NAME' (use letters, digits, - and _)"
+[[ -z "$PORT" || "$PORT" =~ ^[0-9]+$ ]] || die "invalid port '$PORT'"
+mkdir -p "$STATE_DIR"
+set_paths
+
+case "$cmd" in
+toggle)
+  if running; then stop; else start; fi
+  ;;
+start) start ;;
+stop) stop ;;
+status) status ;;
+list) list ;;
+-h | --help | help) usage ;;
+*)
+  usage >&2
+  exit 1
+  ;;
+esac
