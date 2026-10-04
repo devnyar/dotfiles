@@ -17,7 +17,7 @@ local defaults = {
   { output = "DP-3", mode = "preferred", position = "832x1440", scale = 1, transform = 3 },
   -- Virtual VNC screen, created on demand by `vnc-monitor` (~/.local/bin).
   -- Ignored while the output doesn't exist.
-  { output = "vnc", mode = "1920x1080@60", position = "-1920x288", scale = 1 },
+  { output = "vnc", mode = "2560x1440@60", position = "-2560x288", scale = 1 },
 }
 
 -- Fallback for any monitor not matched below.
