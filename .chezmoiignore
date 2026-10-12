@@ -20,7 +20,9 @@ CLAUDE.md
 .config/hypr
 .config/kitty
 .config/omarchy
+.config/quickshell
 .local/share/applications
+.local/share/omarchy-patches
 
 # Desktop apps (and their secret-bearing templates)
 .config/cliamp
@@ -55,7 +57,9 @@ install-tailscale-lan-bypass.sh
 .config/foot
 .config/environment.d
 .config/omarchy
+.config/quickshell
 .local/share/applications
+.local/share/omarchy-patches
 
 # Terminal configs import Omarchy's theme files (~/.local/state/omarchy/...)
 # and set GTK-only options. Drop the `.config/<term>` line below once a
