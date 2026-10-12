@@ -33,6 +33,11 @@ o.window("^(zen)$", { workspace = "3 silent", tile = true })
 o.window("^(jetbrains-studio)$", { workspace = "5 silent" })
 o.window("^(dev.zed.Zed)$", { workspace = "4 silent" })
 
+-- Keep Zen rendering (at misc:render_unfocused_fps) while it sits on a hidden workspace.
+-- Without frame callbacks the page stops ticking, so YouTube captions in the pinned
+-- Picture-in-Picture window freeze until the main Zen window is visible again.
+o.window("^(zen)$", { render_unfocused = true })
+
 -- Startup terminals (autostart.lua launches ghostty with these custom classes).
 o.window("^(org\\.banyar\\.startup-term1)$", { workspace = "1 silent" })
 o.window("^(org\\.banyar\\.startup-term2)$", { workspace = "2 silent" })
