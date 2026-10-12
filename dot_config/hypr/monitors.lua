@@ -10,9 +10,10 @@
 hl.env("GDK_SCALE", "1")
 
 local defaults = {
-  -- TEMP diagnostic (2026-09-17): 100Hz to test if the DP link drops are
-  -- bandwidth-related. If stable, replace the DP cable and restore @160.
-  { output = "DP-1", mode = "3440x1440@144", position = "0x288", scale = 1.25, transform = 0, vrr = 1 },
+  -- DP-1 link is degrading (2026-10-05: drops now happen even at @144, and
+  -- more often). Held at @100 until the DP cable is replaced with a certified
+  -- DP 1.4/DP80 one, then restore @160 and watch the disconnect count.
+  { output = "DP-1", mode = "3440x1440@100", position = "0x288", scale = 1.25, transform = 0, vrr = 1 },
   { output = "DP-2", mode = "1920x1080@60", position = "2752x0", scale = 1, transform = 3 },
   { output = "DP-3", mode = "preferred", position = "832x1440", scale = 1, transform = 3 },
   -- Virtual VNC screen, created on demand by `vnc-monitor` (~/.local/bin).

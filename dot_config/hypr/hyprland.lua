@@ -88,3 +88,6 @@ hl.env("OMARCHY_SCREENSHOT_DIR", home .. "/Pictures/Screenshots")
 hl.env("OMARCHY_SCREENSHOT_PREFIX", "ss_")
 hl.env("OMARCHY_SCREENRECORD_DIR", home .. "/Videos/Screenrecordings")
 hl.env("OMARCHY_SCREENRECORD_PREFIX", "sr_")
+
+-- Added by hyprmoncfg: its generated monitor rules load last, so nothing before this can override the applied layout.
+do local path = (os.getenv("XDG_CONFIG_HOME") or os.getenv("HOME") .. "/.config") .. "/hypr/hyprmoncfg-monitors.lua"; local file = io.open(path, "r"); if file then file:close(); dofile(path) end end
