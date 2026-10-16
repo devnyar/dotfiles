@@ -12,9 +12,12 @@
 
 set -euo pipefail
 
-VERSION=1.0.0
+VERSION=1.1.0
 LOCKFILE=/var/lock/pve-update.lock
 JOURNAL_KEEP=3d          # journal retention applied during --clean
+# Per-host list of VMIDs that are never touched unless named with --only. Lives
+# outside chezmoi because which containers to leave alone differs per node.
+SKIP_FILE=/etc/pve-update.skip
 
 # ---------------------------------------------------------------- options ---
 DO_HOST=1 DO_UPDATE=1 DO_CLEAN=1 DO_REPORT=1
@@ -44,6 +47,9 @@ OPTIONS
     --skip IDS           exclude these VMIDs
     --include-stopped    start stopped containers, process them, stop again
                          (default: stopped containers are skipped)
+
+    VMIDs listed in /etc/pve-update.skip (one per line, # comments) are always
+    excluded, on top of --skip. Naming one with --only processes it anyway.
 
     -t, --timeout SEC    per-container timeout, default 900
     -n, --dry-run        print what would run, change nothing
@@ -180,10 +186,11 @@ dnf -y autoremove
 SH
 
 read -r -d '' PAYLOAD_CLEAN <<'SH' || true
+# apt lists are kept: community-scripts app updates run `apt install` without an
+# `apt update` first, and fail with exit 100 when the lists are gone.
 if command -v apt-get >/dev/null 2>&1; then
   apt-get -y --purge autoremove >/dev/null 2>&1 || true
   apt-get -y clean >/dev/null 2>&1 || true
-  rm -rf /var/lib/apt/lists/* 2>/dev/null || true
 fi
 if command -v apk >/dev/null 2>&1; then rm -rf /var/cache/apk/* 2>/dev/null || true; fi
 if command -v dnf >/dev/null 2>&1; then dnf -y clean all >/dev/null 2>&1 || true; fi
@@ -211,10 +218,19 @@ SH
 mapfile -t ALL_CTS < <(pct list | awk 'NR>1 {print $1}')
 (( ${#ALL_CTS[@]} )) || warn "no containers found on $NODE."
 
+SKIP_ALWAYS=''
+if [[ -r "$SKIP_FILE" ]]; then
+  SKIP_ALWAYS=$(sed -e 's/#.*//' -e 's/[[:space:],]\+/\n/g' "$SKIP_FILE" | grep -E '^[0-9]+$' | paste -sd, - || true)
+fi
+
 declare -a TARGETS=()
 for id in "${ALL_CTS[@]}"; do
   if [[ -n "$ONLY" ]] && ! in_csv "$id" "$ONLY"; then continue; fi
   if in_csv "$id" "$SKIP"; then continue; fi
+  if in_csv "$id" "$SKIP_ALWAYS" && ! in_csv "$id" "$ONLY"; then
+    dim "CT $id is listed in $SKIP_FILE — skipping (name it with --only to override)"
+    continue
+  fi
   # A template is a golden image, never a running system to patch.
   if pct config "$id" 2>/dev/null | grep -qE '^template:\s*1'; then
     dim "CT $id is a template — skipping"
@@ -387,7 +403,7 @@ process_ct() {
 # ---------------------------------------------------------------- main ------
 echo "${BOLD}pve-update $VERSION${N} — node ${BOLD}$NODE${N}$( (( DRY_RUN )) && echo " ${Y}(dry run)${N}")"
 echo "phases:$( (( DO_HOST )) && echo " host")$( (( DO_UPDATE )) && echo " update")$( (( DO_CLEAN )) && echo " clean")$( (( DO_REPORT )) && echo " report")"
-echo "containers: ${#TARGETS[@]}$( [[ -n "$ONLY" ]] && echo " (--only $ONLY)")$( [[ -n "$SKIP" ]] && echo " (--skip $SKIP)")"
+echo "containers: ${#TARGETS[@]}$( [[ -n "$ONLY" ]] && echo " (--only $ONLY)")$( [[ -n "$SKIP" ]] && echo " (--skip $SKIP)")$( [[ -n "$SKIP_ALWAYS" ]] && echo " (always skipped: $SKIP_ALWAYS)")"
 echo
 
 if ! confirm "Proceed on $NODE?"; then echo "aborted."; exit 0; fi
