@@ -12,6 +12,7 @@ alias grep_prop="adb shell getprop | grep "
 
 # rockchip
 alias rd="rkut ld"
+alias ru="rkut uf update.img"
 
 # general
 alias tree="tree -h"
@@ -19,11 +20,14 @@ alias cze="chezmoi edit --apply "
 
 # rlos rom
 alias rlos="cd ~/rlos-workspace/"
-alias rr="cd ~/rlos-workspace/rlos-rom/"
-alias rlapp-platform="cd ~/rlapp-workspace/rlapp-platform/"
-alias rp="cd ~/rlapp-workspace/rlapp-platform/"
+alias rr="cd ~/Work/rlos-rom/"
 alias bota="cd ~/rlos-workspace/ota/"
 alias ota="cd /media/wd-4tb-1/rlos-workspace/ota/"
+
+# app
+alias rp="cd ~/Work/rlapp-platform/"
+alias rais="cd ~/Work/rlapp-aistudio/"
+alias ragw="cd ~/Work/rlai-gateway"
 
 # tailscale
 # thome = profile 3d7a (banyarnaing123@gmail.com), twork = profile fa4f (reezlive.com)
