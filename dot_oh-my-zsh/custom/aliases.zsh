@@ -14,6 +14,10 @@ alias grep_prop="adb shell getprop | grep "
 alias rd="rkut ld"
 alias ru="rkut uf update.img"
 
+# Claude code
+alias cr="claude --resume "
+alias cu="mise upgrade claude"
+
 # general
 alias tree="tree -h"
 alias cze="chezmoi edit --apply "
@@ -40,13 +44,34 @@ alias twork="tailscale switch fa4f; tailscale up --accept-routes --operator=bany
 alias lanip="~/.local/bin/lanip.sh"
 alias wanip="~/.local/bin/wanip.sh"
 
+# z: an all-lowercase query matches case-insensitively, and a folder whose
+# NAME is the query beats a higher-frecency path that merely contains it.
+# Without this, `z work` (and omarchy's `cd work`) jumped to
+# ~/rlos-workspace/rlos-rom instead of ~/Work.
+ZSHZ_CASE=smart
+# Wrap zshz itself: omarchy's zd baked `zshz` in at definition time, so
+# wrapping the `z` alias alone would miss `cd`. Guarded because this file is
+# sourced twice (by oh-my-zsh, then again after the omarchy aliases).
+if (( $+functions[zshz] && ! $+functions[_zshz_orig] )); then
+  functions -c zshz _zshz_orig
+  zshz() {
+    if (( $# == 1 )) && [[ $1 != -* && $1 != */* ]]; then
+      local q=$1 line p best
+      # -l lists matches lowest rank first, so the last name hit is the best.
+      for line in "${(@f)$(_zshz_orig -l "$q" 2>/dev/null)}"; do
+        p=/${line#*/}
+        if [[ $q == ${q:l} ]]; then
+          [[ ${p:t:l} == $q ]] && best=$p
+        else
+          [[ ${p:t} == $q ]] && best=$p
+        fi
+      done
+      [[ -n $best && -d $best ]] && { builtin cd -- "$best"; return; }
+    fi
+    _zshz_orig "$@"
+  }
+fi
+
 # make a directory and cd into it
 mkcd() { mkdir -p "$1" && cd "$1"; }
 
-# Push to Folders on Device via ADB
-adb-push-update-zip() { adb push "$1" /storage/emulated/0/update.zip }
-# accepts multiple files/folders: adb-push-to-Download ~/roms/*.zip mydir
-adb-push-to-Download() {
-  (( $# )) || { echo "usage: adb-push-to-Download <file-or-dir>..." >&2; return 1; }
-  adb push -- "$@" /storage/emulated/0/Download/
-}
