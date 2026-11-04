@@ -25,6 +25,10 @@ o.exec_on_start("wl-gammarelay-rs")
 -- (clicks and text selection stop working). See the script header.
 o.exec_on_start(home .. "/.local/bin/openlogi-ring-unstick")
 
+-- Keep the Aniimo game window at its fixed 16:9 size (the game resizes itself after
+-- login). See the script header and the Aniimo rule in hyprland.lua.
+o.exec_on_start(home .. "/.local/bin/aniimo-window-lock")
+
 -- Pre-build the DDC brightness bus cache so the first brightness keypress is instant.
 o.exec_on_start(scripts .. "/brightness-ddc.sh warmup")
 

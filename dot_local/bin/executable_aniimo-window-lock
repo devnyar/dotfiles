@@ -1,0 +1,62 @@
+#!/bin/bash
+# Keep the Aniimo game window (Steam/Proton, class steam_app_4126040) at a fixed
+# 16:9 size, placed at the left of DP-1.
+#
+# The Hyprland rule in ~/.config/hypr/hyprland.lua floats it at 1024x576, but the
+# game (Unity under XWayland with 1.25 scaling) places itself and keeps resizing
+# its own window after login (e.g. to 1024x768); min/max_size rules don't stop
+# client-side resizes. While an Aniimo window exists this checks it every second:
+# - for the first STARTUP seconds it pins the window to HOME_X/HOME_Y;
+# - after that, a window you moved stays where you put it;
+# - when its size drifts, it goes back to W x H at the last place it sat at the
+#   right size.
+#
+# Started from ~/.config/hypr/autostart.lua. Only one copy runs.
+
+class=steam_app_4126040
+W=1024 H=576         # keep in sync with the size rule in hyprland.lua
+HOME_X=39 HOME_Y=691 # global coords = rule's monitor-relative move {39, 403} + DP-1 offset (0, 288)
+STARTUP=15           # seconds after the window opens during which it is pinned to HOME
+
+exec 9>"${XDG_RUNTIME_DIR:-/tmp}/aniimo-window-lock.lock"
+flock -n 9 || exit 0
+
+socket="$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/.socket2.sock"
+
+window_geom() { # prints "W H X Y" for the given address, nothing if it is gone
+  hyprctl clients -j | jq -r --arg a "$1" '.[] | select(.address == $a) | "\(.size[0]) \(.size[1]) \(.at[0]) \(.at[1])"'
+}
+
+place() { # place <window> <x> <y>
+  hyprctl dispatch "hl.dsp.window.move({ window = \"$1\", x = $2, y = $3 })" >/dev/null
+}
+
+enforce() {
+  local addr=$1 win="address:$1" pin=${2:-$STARTUP} geom w h x y
+  local keep_x=$HOME_X keep_y=$HOME_Y until=$((SECONDS + pin))
+  while geom=$(window_geom "$addr") && [[ -n $geom ]]; do
+    read -r w h x y <<<"$geom"
+    if [[ $w != "$W" || $h != "$H" ]]; then
+      hyprctl dispatch "hl.dsp.window.resize({ window = \"$win\", x = $W, y = $H })" >/dev/null
+      place "$win" "$keep_x" "$keep_y"
+    elif ((SECONDS < until)); then
+      [[ $x == "$HOME_X" && $y == "$HOME_Y" ]] || place "$win" "$HOME_X" "$HOME_Y"
+    else
+      keep_x=$x keep_y=$y
+    fi
+    sleep 1
+  done
+}
+
+# Game already open when this starts: don't pin it, it may already sit where you want it.
+for addr in $(hyprctl clients -j | jq -r --arg c "$class" '.[] | select(.class == $c) | .address'); do
+  enforce "$addr" 0 &
+done
+
+socat -U - UNIX-CONNECT:"$socket" | while IFS= read -r event; do
+  case $event in
+    openwindow\>\>*,"$class",*)
+      addr=${event#openwindow>>}; addr=${addr%%,*}; addr=0x${addr#0x}
+      enforce "$addr" & ;;
+  esac
+done

@@ -64,6 +64,24 @@ o.window("(org.omarchy.terminal)", { size = { 1200, 800 } })
 -- Small centered confirm dialog spawned by scripts/close-window.sh (SUPER+W on Zen).
 o.window("^(org\\.banyar\\.close-confirm)$", { float = true, center = true, size = { 460, 160 }, stay_focused = true })
 
+-- Aniimo (Steam/Proton, app 4126040): ignore the game's fullscreen request and keep it
+-- in a floating 1024x576 window at the left of DP-1 (the game itself is set to Windowed
+-- 1280x720, its smallest option = 1024x576 at 1.25 scale). Size is locked with min/max:
+-- SUPER + drag resizing fights the game's own resize under XWayland scaling and makes the
+-- window run away. To change size, edit all three sizes here and W/H (+ HOME_Y) in
+-- ~/.local/bin/aniimo-window-lock, keep 16:9. The game also takes sizes below its 1280x720 menu minimum.
+-- Opens in the SUPER + A "game" special workspace. `move` is monitor-relative; keep it in
+-- sync with HOME_X/HOME_Y (global coords) in aniimo-window-lock.
+o.window("^(steam_app_4126040)$", {
+  workspace = "special:game",
+  suppress_event = "fullscreen",
+  float = true,
+  move = { 39, 403 },
+  size = { 1024, 576 },
+  min_size = { 1024, 576 },
+  max_size = { 1024, 576 },
+})
+
 -- OpenLogi Actions Ring: a transparent popup, not a tiled app. Float it centred on
 -- the cursor and pin it so it shows on whichever workspace is active. It needs focus
 -- to take clicks, so app shortcuts go through ~/.local/bin/openlogi-ring-send.
