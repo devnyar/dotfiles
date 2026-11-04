@@ -1,0 +1,54 @@
+#!/bin/bash
+# Launch scrcpy, asking which device to mirror when more than one is connected.
+# Extra arguments are passed through to scrcpy (e.g. scrcpy-pick --no-audio).
+
+notify() { omarchy-notification-send -g 󰄜 -t 4000 "${@:2}" "scrcpy" "$1" 2>/dev/null || notify-send "scrcpy" "$1"; }
+
+# If the caller already chose a device, don't ask.
+for arg in "$@"; do
+  case "$arg" in
+    -s|--serial|--serial=*|-s?*|-d|--select-usb|-e|--select-tcpip|--tcpip*) exec scrcpy "$@" ;;
+  esac
+done
+
+mapfile -t ready < <(adb devices | awk 'NR>1 && $2=="device" {print $1}')
+mapfile -t blocked < <(adb devices | awk 'NR>1 && NF>=2 && $2!="device" {print $1" ("$2")"}')
+
+if (( ${#ready[@]} == 0 )); then
+  if (( ${#blocked[@]} )); then
+    notify "No usable device: ${blocked[*]}" -u critical
+  else
+    notify "No Android device connected" -u critical
+  fi
+  exit 1
+fi
+
+describe() {
+  local s=$1 name model release transport
+  name=$(timeout 3 adb -s "$s" shell settings get global device_name 2>/dev/null | tr -d '\r')
+  model=$(timeout 3 adb -s "$s" shell getprop ro.product.model 2>/dev/null | tr -d '\r')
+  release=$(timeout 3 adb -s "$s" shell getprop ro.build.version.release 2>/dev/null | tr -d '\r')
+  [[ $s == *:* || $s == *._adb-tls-connect._tcp* ]] && transport="Wi-Fi" || transport="USB"
+  [[ -z $name || $name == null ]] && name=${model:-$s}
+  # <glyph>TAB<label>TAB<subtext>; the serial leads the subtext so it can be parsed back.
+  printf '󰄜\t%s\t%s · %s · Android %s · %s\n' "$name" "$s" "${model:-?}" "${release:-?}" "$transport"
+}
+
+if (( ${#ready[@]} == 1 )); then
+  serial=${ready[0]}
+  title=$(describe "$serial" | cut -f2)
+else
+  tmp=$(mktemp -d)
+  trap 'rm -rf "$tmp"' EXIT
+  for i in "${!ready[@]}"; do describe "${ready[$i]}" >"$tmp/$i" & done
+  wait
+  options=()
+  for i in "${!ready[@]}"; do options+=("$(<"$tmp/$i")"); done
+
+  selection=$(omarchy-menu-select "Select Android device" "${options[@]}" -- --width 560) || exit 0
+  title=$(cut -f1 <<<"$selection")
+  serial=$(cut -f2 <<<"$selection" | awk '{print $1}')
+fi
+
+[[ -n $serial ]] || exit 1
+exec scrcpy --serial="$serial" --window-title="${title:-$serial}" "$@"
