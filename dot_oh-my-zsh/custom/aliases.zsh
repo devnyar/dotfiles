@@ -14,7 +14,11 @@ alias grep_prop="adb shell getprop | grep "
 alias rd="rkut ld"
 alias ru="rkut uf update.img"
 
-# Claude code
+# Claude code (overrides omarchy's c='opencode --auto'; cc shadows the C
+# compiler only in interactive shells — builds/scripts still get /usr/bin/cc)
+alias c="claude"
+alias cc="claude"
+alias oc="opencode"
 alias cr="claude --resume "
 alias cu="mise upgrade claude"
 

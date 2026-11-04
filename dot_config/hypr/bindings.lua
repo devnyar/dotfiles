@@ -40,6 +40,8 @@ o.bind("SUPER + B", "Toggle communication", hl.dsp.workspace.toggle_special("com
 o.bind("SUPER + SHIFT + G", "Move to communication", hl.dsp.window.move({ workspace = "special:communication", follow = false }))
 
 hl.unbind("SUPER + SHIFT + A") -- was: ChatGPT webapp
+hl.unbind("SUPER + SHIFT + ALT + A") -- was: Grok webapp
+hl.unbind("SUPER + SHIFT + CTRL + A") -- was: omarchy-agent --pick
 o.bind("SUPER + A", "Toggle game", hl.dsp.workspace.toggle_special("game"))
 o.bind("SUPER + SHIFT + A", "Move to game", hl.dsp.window.move({ workspace = "special:game", follow = false }))
 
