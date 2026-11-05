@@ -60,30 +60,5 @@ for _, live in ipairs(hl.get_monitors()) do
   end
 end
 
--- Workspaces a vnc-monitor screen takes over while it exists. Applied from
--- events, not as plain rules, so they win over the static assignments loaded
--- later (hyprland.lua, hyprmoncfg-monitors.lua) and fall back to those once
--- the screen is gone (`vnc-monitor stop` reloads the config).
-local vnc_workspaces = {
-  vnc = { 10 },
-}
-
-local function claim_workspaces(name)
-  for _, ws in ipairs(vnc_workspaces[name] or {}) do
-    ws = tostring(ws)
-    hl.workspace_rule({ workspace = ws, monitor = name })
-    if hl.get_workspace(ws) then
-      hl.dispatch(hl.dsp.workspace.move({ workspace = ws, monitor = name }))
-    end
-  end
-end
-
-hl.on("monitor.added", function(mon)
-  if mon then claim_workspaces(mon.name) end
-end)
-
-hl.on("config.reloaded", function()
-  for name in pairs(vnc_workspaces) do
-    if hl.get_monitor(name) then claim_workspaces(name) end
-  end
-end)
+-- Workspaces need no assignment here. Omarchy gives every monitor, including a
+-- vnc-monitor screen, its own 1-10 (see default/hypr/monitor-workspaces.lua).

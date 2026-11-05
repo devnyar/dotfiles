@@ -6,6 +6,7 @@ local scripts = home .. "/.config/hypr/scripts"
 -- App workspace assignments — window rules in hyprland.lua route these by class.
 o.launch_on_start(home .. "/.local/share/JetBrains/Toolbox/apps/android-studio/bin/studio")
 o.launch_on_start("zeditor")
+o.exec_on_start(scripts .. "/zed-second-window.sh") -- Zed on workspace 4 of both monitors.
 o.launch_on_start("/opt/zen-browser-bin/zen-bin")
 
 -- Day/night tint is handled by hyprsunset (profiles in hyprsunset.conf); it
@@ -34,7 +35,7 @@ o.exec_on_start(scripts .. "/brightness-ddc.sh warmup")
 
 -- Startup terminals — foot is the default terminal (xdg-terminal-exec), so
 -- these share ~/.config/foot/foot.ini with every hand-opened window. --app-id
--- gives each its own class for the window rules in hyprland.lua (ws 1, 2, 6).
+-- gives each its own class for the window rules in hyprland.lua (LG 1, LG 2, AOC 1).
 o.launch_on_start("foot --app-id=org.banyar.startup-term1")
 o.launch_on_start("foot --app-id=org.banyar.startup-term2")
 o.launch_on_start("foot --app-id=org.banyar.startup-term6")

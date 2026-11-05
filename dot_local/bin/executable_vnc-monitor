@@ -205,9 +205,6 @@ stop() {
     # Hyprland relocates any workspaces living on the output as it goes away.
     hyprctl output remove "$NAME" >/dev/null ||
       die "could not remove output $NAME"
-    # Drop the runtime workspace rules monitors.lua added for this output, so
-    # its workspaces go back to their usual monitor next time they're created.
-    hyprctl reload >/dev/null
   fi
 
   notify "VNC monitor off" "$NAME"

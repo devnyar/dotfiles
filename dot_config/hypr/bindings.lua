@@ -59,13 +59,17 @@ hl.unbind("SUPER + SPACE")
 o.bind("SUPER + S", "Launch apps", "omarchy-menu toggle apps")
 
 -- Numpad workspace switching — bind by keycode so it fires regardless of
--- NumLock state. xkb keycode = evdev keycode + 8.
+-- NumLock state. xkb keycode = evdev keycode + 8. Like SUPER + 1-0, these act on
+-- the focused monitor's own workspaces.
 local numpad_codes = { 87, 88, 89, 83, 84, 85, 79, 80, 81, 90 }
 for workspace, code in ipairs(numpad_codes) do
   local key = "code:" .. tostring(code)
-  o.bind("SUPER + " .. key, "Switch to workspace " .. workspace, hl.dsp.focus({ workspace = tostring(workspace) }))
-  o.bind("SUPER + SHIFT + " .. key, "Move window to workspace " .. workspace, hl.dsp.window.move({ workspace = tostring(workspace) }))
+  o.bind("SUPER + " .. key, "Switch to workspace " .. workspace, o.workspaces.focus(workspace))
+  o.bind("SUPER + SHIFT + " .. key, "Move window to workspace " .. workspace, o.workspaces.move_window(workspace))
 end
+
+-- SUPER+N: jump to the next monitor. Same action as the default CTRL+ALT+TAB.
+o.bind("SUPER + N", "Focus on next monitor", hl.dsp.focus({ monitor = "+1" }))
 
 -- External monitor brightness (DDC/CI) ----------------------------------------
 -- This desktop has no laptop backlight, so omarchy's default XF86MonBrightness
@@ -82,3 +86,10 @@ o.bind("SHIFT + XF86MonBrightnessUp", "Brightness max", ddc .. " 100%", { locked
 o.bind("SHIFT + XF86MonBrightnessDown", "Brightness min", ddc .. " 1%", { locked = true, repeating = true })
 o.bind("ALT + XF86MonBrightnessUp", "Brightness up precise", ddc .. " +1%", { locked = true, repeating = true })
 o.bind("ALT + XF86MonBrightnessDown", "Brightness down precise", ddc .. " 1%-", { locked = true, repeating = true })
+
+-- Dictation keys from before Alt + Space and Right Alt became the defaults.
+-- Remove these lines to give the keys back to applications.
+if o.dictation_installed and o.dictation_installed() then
+  o.bind("SUPER + CTRL + X", "Toggle dictation", "omarchy-dictation toggle")
+  o.bind_hold("F9", "Start dictation (push-to-talk)", "omarchy-dictation start", "Stop dictation (push-to-talk)", "omarchy-dictation stop")
+end

@@ -39,21 +39,17 @@ o.window("^(dev.zed.Zed)$", { workspace = "4 silent" })
 o.window("^(zen)$", { render_unfocused = true })
 
 -- Startup terminals (autostart.lua launches ghostty with these custom classes).
+-- Rules use Hyprland's global ids. Omarchy gives each monitor a block of ten
+-- (see default/hypr/monitor-workspaces.lua): LG = 1-10, AOC = 11-20. So 11 is
+-- workspace 1 on the AOC.
 o.window("^(org\\.banyar\\.startup-term1)$", { workspace = "1 silent" })
 o.window("^(org\\.banyar\\.startup-term2)$", { workspace = "2 silent" })
-o.window("^(org\\.banyar\\.startup-term6)$", { workspace = "6 silent" })
+o.window("^(org\\.banyar\\.startup-term6)$", { workspace = "11 silent" })
 
 -- Special-workspace apps.
 o.window("^(chrome-discord\\.com__channels_@me-Default)$", { workspace = "special:discord silent" })
 o.window("^(chrome-ophjlpahpchlmihnnnihgmmeilfjmjjc__index\\.html-Default)$", { workspace = "special:communication silent" })
 o.window("^(Spotify)$", { workspace = "special:spotify silent" })
-
--- Workspace to monitor assignments.
-for _, ws in ipairs({ 1, 2, 3, 4, 5, 7, 8 }) do
-  hl.workspace_rule({ workspace = tostring(ws), monitor = "DP-1" })
-end
-hl.workspace_rule({ workspace = "6", monitor = "DP-2" })
-hl.workspace_rule({ workspace = "9", monitor = "DP-3" })
 
 -- Override floating window default size (omarchy default is 875x600).
 o.window({ tag = "floating-window" }, { size = { 1200, 800 } })

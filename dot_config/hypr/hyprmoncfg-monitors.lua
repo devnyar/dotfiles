@@ -31,13 +31,3 @@ hl.monitor({
   sdr_min_luminance = 0.2,
   sdr_max_luminance = 80,
 })
-
-hl.workspace_rule({ workspace = "1", monitor = "desc:LG Electronics LG ULTRAWIDE 503NTPC70160" })
-hl.workspace_rule({ workspace = "2", monitor = "desc:LG Electronics LG ULTRAWIDE 503NTPC70160" })
-hl.workspace_rule({ workspace = "3", monitor = "desc:LG Electronics LG ULTRAWIDE 503NTPC70160" })
-hl.workspace_rule({ workspace = "4", monitor = "desc:LG Electronics LG ULTRAWIDE 503NTPC70160" })
-hl.workspace_rule({ workspace = "5", monitor = "desc:LG Electronics LG ULTRAWIDE 503NTPC70160" })
-hl.workspace_rule({ workspace = "6", monitor = "desc:AOC 24G4 12VR3HA000792" })
-hl.workspace_rule({ workspace = "7", monitor = "desc:LG Electronics LG ULTRAWIDE 503NTPC70160" })
-hl.workspace_rule({ workspace = "8", monitor = "desc:LG Electronics LG ULTRAWIDE 503NTPC70160" })
-hl.workspace_rule({ workspace = "9", monitor = "desc:___ ZeroMOD 0x00000645" })
