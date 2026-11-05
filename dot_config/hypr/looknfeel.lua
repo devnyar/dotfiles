@@ -14,3 +14,8 @@ hl.curve("mech", { type = "bezier", points = { { 0.30, 0.98 }, { 0.8, 1.03 } } }
 -- Override vertical workspace switching with a horizontal slide.
 -- (Omarchy 4 disables workspace animations by default, so re-enable here.)
 hl.animation({ leaf = "workspaces", enabled = true, speed = 4, bezier = "mech", style = "slide" })
+
+-- Opt another application in to Omarchy's standard transparency.
+-- Find its class with: hyprctl clients
+-- o.transparent_window("my-app")
+-- o.transparent_window("my-app", "0.9 0.85") -- Custom active/inactive opacity.
