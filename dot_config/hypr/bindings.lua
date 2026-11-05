@@ -29,7 +29,6 @@ o.bind("SUPER + U", "Toggle scratchpad", hl.dsp.workspace.toggle_special("scratc
 o.bind("SUPER + SHIFT + U", "Move to scratchpad", hl.dsp.window.move({ workspace = "special:scratchpad", follow = false }))
 
 o.bind("SUPER + D", "Toggle Discord", hl.dsp.workspace.toggle_special("discord"))
-o.bind("SUPER + SHIFT + D", "Move to Discord", hl.dsp.window.move({ workspace = "special:discord", follow = false }))
 
 -- Spotify on its own special workspace so SUPER+R shows and hides it
 -- (the omarchy default is launch-or-focus only, with no way to hide it again).
@@ -37,11 +36,11 @@ o.bind("SUPER + R", "Toggle Spotify", hl.dsp.workspace.toggle_special("spotify")
 hl.workspace_rule({ workspace = "special:spotify", on_created_empty = "uwsm-app -- spotify" })
 
 o.bind("SUPER + B", "Toggle communication", hl.dsp.workspace.toggle_special("communication"))
-o.bind("SUPER + SHIFT + G", "Move to communication", hl.dsp.window.move({ workspace = "special:communication", follow = false }))
 
 hl.unbind("SUPER + SHIFT + A") -- was: ChatGPT webapp
 hl.unbind("SUPER + SHIFT + ALT + A") -- was: Grok webapp
 hl.unbind("SUPER + SHIFT + CTRL + A") -- was: omarchy-agent --pick
+hl.unbind("SUPER + A") -- was: select all (sends CTRL+A)
 o.bind("SUPER + A", "Toggle game", hl.dsp.workspace.toggle_special("game"))
 o.bind("SUPER + SHIFT + A", "Move to game", hl.dsp.window.move({ workspace = "special:game", follow = false }))
 
@@ -52,6 +51,7 @@ o.bind("SUPER + W", "Close window", scripts .. "/close-window.sh")
 
 -- SUPER+E: file manager (Strata), SUPER+Q: system menu.
 o.bind("SUPER + E", "File manager", { launch = "strata" })
+hl.unbind("SUPER + Q") -- was: close window (SUPER+W still closes)
 o.bind("SUPER + Q", "Omarchy menu", "omarchy-menu toggle")
 
 -- App launcher on SUPER+S (freed from scratchpad above); SUPER+SPACE stays free.
