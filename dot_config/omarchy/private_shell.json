@@ -3,9 +3,9 @@
     "layout": {
       "center": [
         {
-          "format": "dddd HH:mm",
-          "formatAlt": "d MMMM 'W'ww yyyy",
           "id": "omarchy.clock",
+          "format": "ddd d MMM h:mm AP",
+          "formatAlt": "d MMMM 'W'ww yyyy",
           "verticalFormat": "HH\n—\nmm"
         }
       ],
@@ -60,14 +60,6 @@
               "zone": "Asia/Bangkok"
             },
             {
-              "name": "Los Angeles",
-              "zone": "America/Los_Angeles"
-            },
-            {
-              "name": "New York",
-              "zone": "America/New_York"
-            },
-            {
               "name": "London",
               "zone": "Europe/London"
             },
@@ -75,7 +67,8 @@
               "name": "Dubai",
               "zone": "Asia/Dubai"
             }
-          ]
+          ],
+          "hour24": true
         },
         {
           "id": "omarchy.weather"
