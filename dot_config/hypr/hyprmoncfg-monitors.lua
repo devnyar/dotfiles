@@ -3,7 +3,7 @@
 hl.monitor({
   output = "desc:___ ZeroMOD 0x00000645",
   mode = "480x1920@60.00",
-  position = "169x1440",
+  position = "169x1728",
   scale = 1,
   transform = 3,
   vrr = 0,
@@ -14,7 +14,7 @@ hl.monitor({
 hl.monitor({
   output = "desc:AOC 24G4 12VR3HA000792",
   mode = "1920x1080@60.00",
-  position = "2752x0",
+  position = "3440x0",
   scale = 1,
   transform = 3,
   vrr = 0,
@@ -26,7 +26,7 @@ hl.monitor({
   output = "desc:LG Electronics LG ULTRAWIDE 503NTPC70160",
   mode = "3440x1440@100.00",
   position = "0x288",
-  scale = 1.25,
+  scale = 1,
   vrr = 1,
   sdr_min_luminance = 0.2,
   sdr_max_luminance = 80,
