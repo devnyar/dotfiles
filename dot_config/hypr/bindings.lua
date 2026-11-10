@@ -47,6 +47,9 @@ o.bind("SUPER + SHIFT + A", "Move to game", hl.dsp.window.move({ workspace = "sp
 hl.unbind("SUPER + W")
 o.bind("SUPER + W", "Close window", scripts .. "/close-window.sh")
 
+-- SHIFT+PRINT: select an area, OCR it (Thai + English) and translate to English.
+o.bind("SHIFT + PRINT", "Translate screen area", scripts .. "/screen-translate.sh")
+
 -- SUPER+E: file manager (Strata). SUPER+Q left unbound (SUPER+W closes);
 -- the Omarchy menu stays on its default SUPER+SPACE, apps on SUPER+ALT+SPACE.
 o.bind("SUPER + E", "File manager", { launch = "strata" })

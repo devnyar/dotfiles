@@ -60,6 +60,9 @@ o.window("(org.omarchy.terminal)", { size = { 1200, 800 } })
 -- Small centered confirm dialog spawned by scripts/close-window.sh (SUPER+W on Zen).
 o.window("^(org\\.banyar\\.close-confirm)$", { float = true, center = true, size = { 460, 160 }, stay_focused = true })
 
+-- Result window of scripts/screen-translate.sh (SHIFT+PRINT).
+o.window("^(org\\.banyar\\.screen-translate)$", { float = true, center = true, size = { 900, 520 } })
+
 -- Aniimo (Steam/Proton, app 4126040): ignore the game's fullscreen request and keep it
 -- in a floating 1024x576 window at the left of DP-1 (the game itself is set to Windowed
 -- 1280x720, its smallest option = 1024x576 at 1.25 scale). Size is locked with min/max:
