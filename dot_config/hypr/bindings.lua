@@ -8,9 +8,8 @@ local scripts = home .. "/.config/hypr/scripts"
 
 -- App overrides ---------------------------------------------------------------
 
--- Obsidian with GPU workaround + Wayland IME (default launches plain obsidian).
+-- Obsidian is uninstalled; drop the default SUPER+SHIFT+O launcher.
 hl.unbind("SUPER + SHIFT + O")
-o.bind("SUPER + SHIFT + O", "Obsidian", { focus = "^obsidian$", launch = "obsidian -disable-gpu --enable-wayland-ime" })
 
 -- Typora instead of Omawrite.
 hl.unbind("SUPER + SHIFT + W")
@@ -21,8 +20,7 @@ hl.unbind("SUPER + SHIFT + G")
 o.bind("SUPER + SHIFT + G", "Glance", { webapp = "https://glance.banyar.app/", focus = true })
 
 -- Special workspaces ----------------------------------------------------------
--- Scratchpad lives on SUPER+U here; SUPER+S (the 4.x default) becomes the app
--- launcher below.
+-- Scratchpad lives on SUPER+U here; SUPER+S (the 4.x default) is left unbound.
 hl.unbind("SUPER + S")     -- was: toggle scratchpad
 hl.unbind("SUPER + ALT + S") -- was: move window to scratchpad
 o.bind("SUPER + U", "Toggle scratchpad", hl.dsp.workspace.toggle_special("scratchpad"))
@@ -49,14 +47,10 @@ o.bind("SUPER + SHIFT + A", "Move to game", hl.dsp.window.move({ workspace = "sp
 hl.unbind("SUPER + W")
 o.bind("SUPER + W", "Close window", scripts .. "/close-window.sh")
 
--- SUPER+E: file manager (Strata), SUPER+Q: system menu.
+-- SUPER+E: file manager (Strata). SUPER+Q left unbound (SUPER+W closes);
+-- the Omarchy menu stays on its default SUPER+SPACE, apps on SUPER+ALT+SPACE.
 o.bind("SUPER + E", "File manager", { launch = "strata" })
-hl.unbind("SUPER + Q") -- was: close window (SUPER+W still closes)
-o.bind("SUPER + Q", "Omarchy menu", "omarchy-menu toggle")
-
--- App launcher on SUPER+S (freed from scratchpad above); SUPER+SPACE stays free.
-hl.unbind("SUPER + SPACE")
-o.bind("SUPER + S", "Launch apps", "omarchy-menu toggle apps")
+hl.unbind("SUPER + Q") -- was: close window
 
 -- Numpad workspace switching — bind by keycode so it fires regardless of
 -- NumLock state. xkb keycode = evdev keycode + 8. Like SUPER + 1-0, these act on
