@@ -1,0 +1,6 @@
+[Desktop Entry]
+# Hides the packaged "scrcpy (console)" launcher entry; use the scrcpy entry (scrcpy-pick).
+Name=scrcpy (console)
+Type=Application
+NoDisplay=true
+Hidden=true
