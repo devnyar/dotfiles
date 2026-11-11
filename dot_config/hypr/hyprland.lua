@@ -65,7 +65,7 @@ o.window("^(org\\.banyar\\.screen-translate)$", { float = true, center = true, s
 
 -- Aniimo (Steam/Proton, app 4126040): ignore the game's fullscreen request and keep it
 -- in a floating 1024x576 window at the left of DP-1 (the game itself is set to Windowed
--- 1280x720, its smallest option = 1024x576 at 1.25 scale). Size is locked with min/max:
+-- 1024x576; DP-1 is at scale 1 and the game adopts the enforced window size). Size is locked with min/max:
 -- SUPER + drag resizing fights the game's own resize under XWayland scaling and makes the
 -- window run away. To change size, edit all three sizes here and W/H (+ HOME_Y) in
 -- ~/.local/bin/aniimo-window-lock, keep 16:9. The game also takes sizes below its 1280x720 menu minimum.

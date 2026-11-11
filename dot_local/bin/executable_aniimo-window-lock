@@ -3,7 +3,7 @@
 # 16:9 size, placed at the left of DP-1.
 #
 # The Hyprland rule in ~/.config/hypr/hyprland.lua floats it at 1024x576, but the
-# game (Unity under XWayland with 1.25 scaling) places itself and keeps resizing
+# game (Unity under XWayland) places itself and keeps resizing
 # its own window after login (e.g. to 1024x768); min/max_size rules don't stop
 # client-side resizes. While an Aniimo window exists this checks it every second:
 # - for the first STARTUP seconds it pins the window to HOME_X/HOME_Y;
