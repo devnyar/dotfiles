@@ -95,6 +95,60 @@ o.window("^(openlogi-action-ring)$", {
   tag = "-default-opacity",
 })
 
+-- LINE (Chromium extension app): its Stickers/Emoji picker is a separate popup window
+-- (popup.html) with the same class and title as the main window, so no static rule can
+-- single it out. Tiled, it filled half the screen and LINE closed it straight away.
+-- Float any LINE window that opens while another one already exists.
+-- The picker closes itself on blur (window "blur" -> window.close()), and focus follows
+-- the mouse, so it must open under the cursor: centred, the pointer crossed the main
+-- LINE window on the way and the picker vanished. Put it with the cursor near its
+-- bottom edge (the sticker button sits in the message bar), kept on the monitor.
+-- Chromium sometimes misses Hyprland's resize of the fresh popup and keeps drawing at its
+-- old size (picker in the corner, rest of the frame transparent, or blank). Floating it
+-- before map (window.open_early + tag rule) made that worse, so it floats after map, and
+-- the size is re-sent a few times over the first second (2px shrink, then back; 1px drifts it) so a
+-- missed resize gets corrected.
+local line_class = "chrome-ophjlpahpchlmihnnnihgmmeilfjmjjc__index.html-Default"
+local line_popup_w, line_popup_h = 820, 1150
+local function line_nudge(target)
+  hl.dispatch(hl.dsp.window.resize({ x = line_popup_w - 2, y = line_popup_h, relative = false, window = target }))
+  hl.dispatch(hl.dsp.window.resize({ x = line_popup_w, y = line_popup_h, relative = false, window = target }))
+end
+hl.on("window.open", function(window)
+  if not window or window.class ~= line_class then return end
+  local others = 0
+  for _, other in ipairs(hl.get_windows()) do
+    if other.class == line_class and other.address ~= window.address then others = others + 1 end
+  end
+  if others == 0 then return end
+  local target = "address:" .. window.address
+  hl.dispatch(hl.dsp.window.float({ action = "on", window = target }))
+  hl.dispatch(hl.dsp.window.resize({ x = line_popup_w, y = line_popup_h, relative = false, window = target }))
+  for _, delay in ipairs({ 150, 400, 900 }) do
+    hl.timer(function()
+      for _, w in ipairs(hl.get_windows()) do
+        if w.address == window.address then line_nudge(target) end
+      end
+    end, { type = "oneshot", timeout = delay })
+  end
+
+  local ok, cursor = pcall(hl.get_cursor_pos)
+  local cx = ok and cursor and (cursor.x or cursor[1])
+  local cy = ok and cursor and (cursor.y or cursor[2])
+  if not (cx and cy) then
+    hl.dispatch(hl.dsp.window.center({ window = target }))
+    return
+  end
+  local x, y = cx - line_popup_w / 2, cy - line_popup_h + 60
+  for _, m in ipairs(hl.get_monitors()) do
+    if cx >= m.x and cx < m.x + m.width and cy >= m.y and cy < m.y + m.height then
+      x = math.max(m.x + 10, math.min(x, m.x + m.width - line_popup_w - 10))
+      y = math.max(m.y + 40, math.min(y, m.y + m.height - line_popup_h - 10))
+    end
+  end
+  hl.dispatch(hl.dsp.window.move({ x = math.floor(x), y = math.floor(y), relative = false, window = target }))
+end)
+
 -- Capture output directories and filename prefixes.
 -- Screenshots go to ~/Pictures/Screenshots as ss_<timestamp>.png; recordings to
 -- ~/Videos/Screenrecordings as sr_<timestamp>.mp4. The prefix vars need the patch in
