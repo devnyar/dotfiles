@@ -1,0 +1,25 @@
+# Strata right-click action: convert videos with ~/.local/bin/line-video so LINE for
+# Chrome sends them as playable videos instead of file attachments (Chromium on Linux
+# can't run LINE's in-browser re-encode, so LINE falls back to sending a file).
+# Writes NAME-line.mp4 next to each original.
+schema_version = 1
+id = "line-video"
+name = "Convert for LINE"
+description = "Make a copy LINE sends as a playable video (960x540 H.264, mono AAC)"
+icon = "video"
+enabled = true
+menu = "top"
+
+[when]
+kinds = ["file"]
+mime_types = ["video/*"]
+min_items = 1
+
+[run]
+runtime = "command"
+program = "line-video"
+args = ["{path}"]
+mode = "per-item"
+on_error = "continue"
+working_directory = "parent"
+confirm = false

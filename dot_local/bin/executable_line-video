@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# line-video: convert videos so LINE for Chrome sends them as a playable video message
+# instead of a file attachment.
+#
+# Why: LINE re-encodes any video that is not already "small H.264 + mono AAC" in the
+# browser (WebCodecs). Chromium on Linux has no AAC AudioEncoder, so that re-encode
+# throws and LINE silently falls back to sending the video as a FILE. A video that
+# already meets LINE's limits is sent untouched, as a VIDEO message:
+#   H.264, long side <= 960, short side <= 540, <= 25 fps, video <= 1575 kbps,
+#   AAC-LC mono <= 100.8 kbps at <= 48 kHz (or no audio), non-fragmented .mp4,
+#   file <= 200 MB.
+#
+# Usage: line-video FILE...   -> writes FILE-line.mp4 next to each input.
+set -euo pipefail
+
+notify() { command -v notify-send >/dev/null && notify-send -a "LINE video" "$@" || true; }
+
+if [ $# -eq 0 ]; then
+  echo "usage: line-video VIDEO..." >&2
+  exit 2
+fi
+
+status=0
+for in in "$@"; do
+  if [ ! -f "$in" ]; then
+    echo "skip: $in (not a file)" >&2; status=1; continue
+  fi
+  out="${in%.*}-line.mp4"
+
+  # Portrait videos fit inside 540x960, landscape inside 960x540 (sizes after rotation).
+  read -r w h < <(ffprobe -v error -select_streams v:0 -show_entries stream=width,height:stream_side_data=rotation \
+    -of default=nw=1 "$in" | awk -F= '/^width/{w=$2} /^height/{h=$2} /^rotation/{r=$2} END{if(r==90||r==-90||r==270||r==-270){t=w;w=h;h=t} print w, h}')
+  if [ -z "${w:-}" ] || [ -z "${h:-}" ]; then
+    echo "skip: $in (no video stream)" >&2; status=1; continue
+  fi
+  if [ "$w" -ge "$h" ]; then box="960:540"; else box="540:960"; fi
+
+  echo "converting: $in -> $out"
+  if ! ffmpeg -hide_banner -loglevel error -stats -y -i "$in" \
+      -map 0:v:0 -map '0:a:0?' \
+      -vf "scale=${box}:force_original_aspect_ratio=decrease:force_divisible_by=2,fps=fps='min(source_fps,24)'" \
+      -c:v libx264 -preset medium -profile:v high -pix_fmt yuv420p \
+      -b:v 1300k -maxrate 1450k -bufsize 2900k \
+      -c:a aac -ac 1 -ar 48000 -b:a 80k \
+      -movflags +faststart -map_metadata -1 \
+      "$out"; then
+    echo "failed: $in" >&2; notify "Conversion failed" "$(basename "$in")"; status=1; continue
+  fi
+
+  size=$(stat -c %s "$out")
+  if [ "$size" -gt 209715200 ]; then
+    echo "warning: $out is $((size / 1048576)) MB; LINE sends videos over 200 MB as files" >&2
+    notify "Too big for a LINE video" "$(basename "$out") is $((size / 1048576)) MB (limit 200 MB)"
+  else
+    notify "Ready for LINE" "$(basename "$out") ($((size / 1048576)) MB)"
+  fi
+  echo "$out"
+done
+exit $status
