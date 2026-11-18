@@ -10,9 +10,12 @@
 
 class=$(hyprctl activewindow -j | jq -r '.class // ""')
 
+# In Zen the keys are crossed on purpose: swipe left (prev) sends Ctrl+Alt+Right
+# and swipe right (next) sends Ctrl+Alt+Left, which matches the direction the
+# user expects in Zen.
 case "$class:$1" in
-  zen:prev) mods="CTRL ALT" key=Left ;;
-  zen:next) mods="CTRL ALT" key=Right ;;
+  zen:prev) mods="CTRL ALT" key=Right ;;
+  zen:next) mods="CTRL ALT" key=Left ;;
   *:prev)   mods="CTRL SHIFT" key=Tab ;;
   *:next)   mods="CTRL" key=Tab ;;
   *) echo "usage: openlogi-gesture-switch prev|next" >&2; exit 2 ;;
