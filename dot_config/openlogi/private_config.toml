@@ -130,9 +130,9 @@ button_spy = false
 sidetone = false
 
 [devices."serial:2635za8d51p8".bindings.GestureButton]
-Up = "MissionControl"
-Down = "ShowDesktop"
-Click = "ShowActionsRing"
+Up = { RunShellCommand = "omarchy-shell shell toggle omarchy.clipboard" }
+Down = "None"
+Click = { RunShellCommand = "omarchy-capture-screenshot" }
 
 [devices."serial:2635za8d51p8".action_ring]
 enabled = true
@@ -311,3 +311,4 @@ RunShellCommand = "openlogi-ring-clipboard copy"
 
 [devices."serial:2635za8d51p8".bindings]
 HapticPanel = "ShowActionsRing"
+DpiToggle = { RunShellCommand = "scrcpy-pick" }
